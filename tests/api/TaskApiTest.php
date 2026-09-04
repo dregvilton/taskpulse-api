@@ -22,6 +22,7 @@ final class TaskApiTest extends ApiTestCase
         ]);
 
         self::assertSame(201, $created['status']);
+        self::assertSame('/tasks/1', $created['headers']['location']);
         self::assertSame(1, $created['body']['id']);
         self::assertSame(1, $created['body']['authorId']);
         self::assertFalse($created['body']['completed']);
@@ -179,7 +180,11 @@ final class TaskApiTest extends ApiTestCase
     }
 
     /**
-     * @return array{status: int, body: array<int|string, mixed>}
+     * @return array{
+     *     status: int,
+     *     headers: array<string, string>,
+     *     body: array<int|string, mixed>
+     * }
      * @throws JsonException
      */
     private function createTask(int $authorId, string $title, bool $completed = false): array

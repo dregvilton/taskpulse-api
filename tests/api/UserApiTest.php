@@ -19,6 +19,7 @@ final class UserApiTest extends ApiTestCase
         ]);
 
         self::assertSame(201, $created['status']);
+        self::assertSame('/users/1', $created['headers']['location']);
         self::assertSame(1, $created['body']['id']);
         self::assertSame('Иван Петров', $created['body']['fullName']);
         self::assertIsString($created['body']['createdAt']);

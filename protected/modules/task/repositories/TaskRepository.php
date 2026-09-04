@@ -7,7 +7,6 @@ namespace app\modules\task\repositories;
 use app\extensions\DbConnectTrait;
 use app\models\Task;
 use app\modules\task\forms\TaskSearchForm;
-use RuntimeException;
 use yii\data\SqlDataProvider;
 
 /**
@@ -38,10 +37,19 @@ final class TaskRepository
      */
     public function getByIdForUpdate(int $id): ?Task
     {
-        return Task::findBySql(
-            $this->getSql('get_task_for_update'),
-            [':id' => $id],
-        )->one();
+        $row = $this->getDbConnection()
+            ->createCommand(__DIR__ . '/sqls/get_task_for_update.sql')
+            ->bindValue(':id', $id)
+            ->queryOne();
+
+        if ($row === false) {
+            return null;
+        }
+
+        $task = new Task();
+        Task::populateRecord($task, $row);
+
+        return $task;
     }
 
     /**
@@ -55,7 +63,7 @@ final class TaskRepository
     {
         return new SqlDataProvider([
             'db' => $this->getDbConnection(),
-            'sql' => $this->getSql('get_tasks'),
+            'sql' => $this->getDbConnection()->getSql(__DIR__ . '/sqls/get_tasks.sql'),
             'params' => [
                 ':authorId' => $authorId ?? $form->authorId,
                 ':completed' => $form->completed,
@@ -92,21 +100,5 @@ final class TaskRepository
                 ],
             ],
         ]);
-    }
-
-    /**
-     * Получить SQL-запрос из файла.
-     *
-     * @param string $name
-     * @return string
-     */
-    private function getSql(string $name): string
-    {
-        $sql = file_get_contents(__DIR__ . "/sqls/{$name}.sql");
-        if ($sql === false) {
-            throw new RuntimeException("Не удалось прочитать SQL-запрос {$name}.");
-        }
-
-        return $sql;
     }
 }

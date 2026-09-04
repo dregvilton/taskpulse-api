@@ -16,6 +16,7 @@ use Throwable;
 use Yii;
 use yii\base\InvalidConfigException;
 use yii\data\SqlDataProvider;
+use yii\helpers\Url;
 use yii\web\NotFoundHttpException;
 use yii\web\ServerErrorHttpException;
 
@@ -91,17 +92,15 @@ final class TaskController extends BaseController
             return $this->taskService->getUserTasks($id, $form);
         } catch (UserNotFoundException $exception) {
             throw new NotFoundHttpException(
-                Yii::t('user', 'User not found.'),
-                0,
-                $exception,
+                message: Yii::t('user', 'User not found.'),
+                previous: $exception,
             );
         } catch (Throwable $exception) {
             Yii::error($exception, __METHOD__);
 
             throw new ServerErrorHttpException(
-                Yii::t('task', 'Failed to get tasks.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Failed to get tasks.'),
+                previous: $exception,
             );
         }
     }
@@ -120,17 +119,15 @@ final class TaskController extends BaseController
             return $this->taskService->getById($id);
         } catch (TaskNotFoundException $exception) {
             throw new NotFoundHttpException(
-                Yii::t('task', 'Task not found.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Task not found.'),
+                previous: $exception,
             );
         } catch (Throwable $exception) {
             Yii::error($exception, __METHOD__);
 
             throw new ServerErrorHttpException(
-                Yii::t('task', 'Failed to get task.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Failed to get task.'),
+                previous: $exception,
             );
         }
     }
@@ -153,15 +150,18 @@ final class TaskController extends BaseController
         try {
             $task = $this->taskService->create($form);
             $this->response->setStatusCode(self::CREATED);
+            $this->response->headers->set(
+                'Location',
+                Url::toRoute(['/task/task/view', 'id' => $task->id]),
+            );
 
             return $task;
         } catch (Throwable $exception) {
             Yii::error($exception, __METHOD__);
 
             throw new ServerErrorHttpException(
-                Yii::t('task', 'Failed to create task.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Failed to create task.'),
+                previous: $exception,
             );
         }
     }
@@ -188,17 +188,15 @@ final class TaskController extends BaseController
             return $this->taskService->update($id, $form);
         } catch (TaskNotFoundException $exception) {
             throw new NotFoundHttpException(
-                Yii::t('task', 'Task not found.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Task not found.'),
+                previous: $exception,
             );
         } catch (Throwable $exception) {
             Yii::error($exception, __METHOD__);
 
             throw new ServerErrorHttpException(
-                Yii::t('task', 'Failed to update task.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Failed to update task.'),
+                previous: $exception,
             );
         }
     }
@@ -218,17 +216,15 @@ final class TaskController extends BaseController
             $this->response->setStatusCode(self::NO_CONTENT);
         } catch (TaskNotFoundException $exception) {
             throw new NotFoundHttpException(
-                Yii::t('task', 'Task not found.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Task not found.'),
+                previous: $exception,
             );
         } catch (Throwable $exception) {
             Yii::error($exception, __METHOD__);
 
             throw new ServerErrorHttpException(
-                Yii::t('task', 'Failed to delete task.'),
-                0,
-                $exception,
+                message: Yii::t('task', 'Failed to delete task.'),
+                previous: $exception,
             );
         }
     }

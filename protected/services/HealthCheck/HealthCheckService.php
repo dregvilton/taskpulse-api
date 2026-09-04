@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace app\services\HealthCheck;
 
+use app\extensions\DbConnection;
 use Throwable;
-use yii\db\Connection;
 
 final readonly class HealthCheckService
 {
-    public function __construct(private Connection $db) {}
+    public function __construct(private DbConnection $db) {}
 
     /**
      * @return array{status: 'ok'|'error', services: array{app: 'ok', postgres: 'ok'|'error'}}
@@ -35,12 +35,9 @@ final readonly class HealthCheckService
     private function checkPostgres(): bool
     {
         try {
-            $sql = file_get_contents(__DIR__ . '/sqls/check_postgres.sql');
-            if ($sql === false) {
-                return false;
-            }
-
-            return (int) $this->db->createCommand(trim($sql))->queryScalar() === 1;
+            return (int) $this->db
+                ->createCommand(__DIR__ . '/sqls/check_postgres.sql')
+                ->queryScalar() === 1;
         } catch (Throwable) {
             return false;
         }

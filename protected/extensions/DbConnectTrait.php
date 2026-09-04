@@ -6,26 +6,25 @@ namespace app\extensions;
 
 use Yii;
 use yii\base\InvalidConfigException;
-use yii\db\Connection;
 
 /**
  * Подключение к базе данных.
  */
 trait DbConnectTrait
 {
-    private ?Connection $dbConnection = null;
+    private ?DbConnection $dbConnection = null;
 
     /**
      * Получить подключение к базе данных.
      *
-     * @return Connection
+     * @return DbConnection
      * @throws InvalidConfigException
      */
-    public function getDbConnection(): Connection
+    public function getDbConnection(): DbConnection
     {
-        if (!$this->dbConnection instanceof Connection) {
+        if (!$this->dbConnection instanceof DbConnection) {
             $db = Yii::$app->get('db', false);
-            if (!$db instanceof Connection) {
+            if (!$db instanceof DbConnection) {
                 throw new InvalidConfigException('Компонент базы данных не настроен.');
             }
 
@@ -38,10 +37,10 @@ trait DbConnectTrait
     /**
      * Установить подключение к базе данных.
      *
-     * @param Connection $dbConnection
+     * @param DbConnection $dbConnection
      * @return void
      */
-    public function setDbConnection(Connection $dbConnection): void
+    public function setDbConnection(DbConnection $dbConnection): void
     {
         $this->dbConnection = $dbConnection;
     }

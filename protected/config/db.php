@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use yii\db\Connection;
+use app\extensions\DbConnection;
 
 return [
-    'class' => Connection::class,
+    'class' => DbConnection::class,
     'dsn' => sprintf(
         'pgsql:host=%s;port=%s;dbname=%s',
         $_ENV['DB_HOST'] ?? 'postgres',

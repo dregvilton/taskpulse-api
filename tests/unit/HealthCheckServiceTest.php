@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace tests\unit;
 
+use app\extensions\DbConnection;
 use app\services\HealthCheck\HealthCheckService;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use yii\db\Command;
-use yii\db\Connection;
 
 final class HealthCheckServiceTest extends TestCase
 {
@@ -19,10 +19,10 @@ final class HealthCheckServiceTest extends TestCase
             ->method('queryScalar')
             ->willReturn('1');
 
-        $db = $this->createMock(Connection::class);
+        $db = $this->createMock(DbConnection::class);
         $db->expects(self::once())
             ->method('createCommand')
-            ->with('SELECT 1')
+            ->with(dirname(__DIR__, 2) . '/protected/services/HealthCheck/sqls/check_postgres.sql')
             ->willReturn($command);
 
         self::assertSame(
@@ -39,10 +39,10 @@ final class HealthCheckServiceTest extends TestCase
 
     public function testCheckReportsUnavailablePostgres(): void
     {
-        $db = $this->createMock(Connection::class);
+        $db = $this->createMock(DbConnection::class);
         $db->expects(self::once())
             ->method('createCommand')
-            ->with('SELECT 1')
+            ->with(dirname(__DIR__, 2) . '/protected/services/HealthCheck/sqls/check_postgres.sql')
             ->willThrowException(new RuntimeException('База данных недоступна.'));
 
         self::assertSame(
