@@ -108,12 +108,32 @@ final class UserForm extends Model
     }
 
     /**
+     * Получить атрибуты пользователя.
+     *
+     * @return array<string, mixed>
+     */
+    public function getUserAttributes(): array
+    {
+        $fields = $this->scenario === self::SCENARIO_UPDATE
+            ? $this->providedFields
+            : ['fullName', 'phone'];
+        $attributes = $this->getAttributes($fields);
+
+        if (array_key_exists('fullName', $attributes)) {
+            $attributes['full_name'] = $attributes['fullName'];
+            unset($attributes['fullName']);
+        }
+
+        return $attributes;
+    }
+
+    /**
      * Проверить наличие данных для обновления.
      */
     public function validateChanges(): void
     {
         if ($this->providedFields === []) {
-            $this->addError('fullName', Yii::t('user', 'No data provided for update.'));
+            $this->addError('fullName', Yii::t('app', 'No data provided for update.'));
         }
     }
 }

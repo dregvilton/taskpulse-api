@@ -6,12 +6,16 @@ namespace app\modules\user\controllers;
 
 use app\controllers\BaseController;
 use app\models\User;
+use app\modules\user\exceptions\UserNotFoundException;
 use app\modules\user\forms\UserForm;
 use app\modules\user\forms\UserSearchForm;
 use app\modules\user\Module;
 use app\modules\user\services\UserService;
+use Throwable;
+use Yii;
 use yii\base\InvalidConfigException;
 use yii\data\ActiveDataProvider;
+use yii\helpers\Url;
 use yii\web\NotFoundHttpException;
 use yii\web\ServerErrorHttpException;
 
@@ -75,10 +79,25 @@ final class UserController extends BaseController
      * @param int $id
      * @return User
      * @throws NotFoundHttpException
+     * @throws ServerErrorHttpException
      */
     public function actionView(int $id): User
     {
-        return $this->userService->get($id);
+        try {
+            return $this->userService->getById($id);
+        } catch (UserNotFoundException $exception) {
+            throw new NotFoundHttpException(
+                message: Yii::t('user', 'User not found.'),
+                previous: $exception,
+            );
+        } catch (Throwable $exception) {
+            Yii::error($exception, __METHOD__);
+
+            throw new ServerErrorHttpException(
+                message: Yii::t('user', 'Failed to get user.'),
+                previous: $exception,
+            );
+        }
     }
 
     /**
@@ -96,10 +115,23 @@ final class UserController extends BaseController
             return $form;
         }
 
-        $user = $this->userService->create($form);
-        $this->response->setStatusCode(self::CREATED);
+        try {
+            $user = $this->userService->create($form);
+            $this->response->setStatusCode(self::CREATED);
+            $this->response->headers->set(
+                'Location',
+                Url::toRoute(['/user/user/view', 'id' => $user->id]),
+            );
 
-        return $user;
+            return $user;
+        } catch (Throwable $exception) {
+            Yii::error($exception, __METHOD__);
+
+            throw new ServerErrorHttpException(
+                message: Yii::t('user', 'Failed to create user.'),
+                previous: $exception,
+            );
+        }
     }
 
     /**
@@ -119,7 +151,21 @@ final class UserController extends BaseController
             return $form;
         }
 
-        return $this->userService->update($id, $form);
+        try {
+            return $this->userService->update($id, $form);
+        } catch (UserNotFoundException $exception) {
+            throw new NotFoundHttpException(
+                message: Yii::t('user', 'User not found.'),
+                previous: $exception,
+            );
+        } catch (Throwable $exception) {
+            Yii::error($exception, __METHOD__);
+
+            throw new ServerErrorHttpException(
+                message: Yii::t('user', 'Failed to update user.'),
+                previous: $exception,
+            );
+        }
     }
 
     /**
@@ -132,7 +178,21 @@ final class UserController extends BaseController
      */
     public function actionDelete(int $id): void
     {
-        $this->userService->delete($id);
-        $this->response->setStatusCode(self::NO_CONTENT);
+        try {
+            $this->userService->delete($id);
+            $this->response->setStatusCode(self::NO_CONTENT);
+        } catch (UserNotFoundException $exception) {
+            throw new NotFoundHttpException(
+                message: Yii::t('user', 'User not found.'),
+                previous: $exception,
+            );
+        } catch (Throwable $exception) {
+            Yii::error($exception, __METHOD__);
+
+            throw new ServerErrorHttpException(
+                message: Yii::t('user', 'Failed to delete user.'),
+                previous: $exception,
+            );
+        }
     }
 }

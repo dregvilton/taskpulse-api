@@ -54,6 +54,21 @@ DELETE /users/{id}
 Удаление пользователей выполняется мягко: запись остаётся в базе данных и исключается из API.
 Контракт запросов и ответов описан в [OpenAPI](openapi.yaml).
 
+## Tasks API
+
+```text
+POST   /tasks
+GET    /tasks?authorId=1&completed=false&page=1&perPage=20&sort=-createdAt
+GET    /tasks/{id}
+GET    /users/{id}/tasks
+PATCH  /tasks/{id}
+DELETE /tasks/{id}
+```
+
+Задачи поддерживают фильтрацию по автору, состоянию и датам, сортировку и пагинацию.
+При изменении `completed` поле `completedAt` устанавливается или очищается автоматически.
+Удаление задач выполняется мягко.
+
 ## Development commands
 
 ```bash

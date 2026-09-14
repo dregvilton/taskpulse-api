@@ -5,23 +5,9 @@ declare(strict_types=1);
 namespace tests\api;
 
 use JsonException;
-use PHPUnit\Framework\TestCase;
-use Yii;
-use yii\db\Connection;
 
-final class UserApiTest extends TestCase
+final class UserApiTest extends ApiTestCase
 {
-    private Connection $db;
-
-    protected function setUp(): void
-    {
-        /** @var Connection $db */
-        $db = Yii::$app->get('db');
-        $this->db = $db;
-
-        $this->db->createCommand('TRUNCATE TABLE users RESTART IDENTITY')->execute();
-    }
-
     /**
      * @throws JsonException
      */
@@ -33,6 +19,7 @@ final class UserApiTest extends TestCase
         ]);
 
         self::assertSame(201, $created['status']);
+        self::assertSame('/users/1', $created['headers']['location']);
         self::assertSame(1, $created['body']['id']);
         self::assertSame('Иван Петров', $created['body']['fullName']);
         self::assertIsString($created['body']['createdAt']);
@@ -126,43 +113,4 @@ final class UserApiTest extends TestCase
         self::assertSame('Не переданы данные для обновления.', $response['body'][0]['message']);
     }
 
-    /**
-     * @param array<string, mixed>|null $body
-     * @return array{status: int, body: array<int|string, mixed>}
-     * @throws JsonException
-     */
-    private function request(string $method, string $path, ?array $body = null): array
-    {
-        $headers = ['Accept: application/json'];
-        $options = [
-            'method' => $method,
-            'ignore_errors' => true,
-        ];
-
-        if ($body !== null) {
-            $headers[] = 'Content-Type: application/json';
-            $options['content'] = json_encode($body, JSON_THROW_ON_ERROR);
-        }
-        $options['header'] = implode("\r\n", $headers);
-
-        $response = file_get_contents(
-            ($_ENV['API_BASE_URL'] ?? 'http://nginx') . $path,
-            false,
-            stream_context_create(['http' => $options]),
-        );
-        self::assertNotFalse($response);
-
-        /** @var list<string> $http_response_header */
-        $statusLine = $http_response_header[0] ?? '';
-        preg_match('/\s(\d{3})\s/', $statusLine, $matches);
-        self::assertArrayHasKey(1, $matches);
-
-        $decoded = $response === '' ? [] : json_decode($response, true, flags: JSON_THROW_ON_ERROR);
-        self::assertIsArray($decoded);
-
-        return [
-            'status' => (int) $matches[1],
-            'body' => $decoded,
-        ];
-    }
 }

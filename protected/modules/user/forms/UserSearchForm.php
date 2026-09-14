@@ -30,8 +30,8 @@ final class UserSearchForm extends Model
                 'integer',
                 'min' => 1,
                 'skipOnEmpty' => false,
-                'message' => Yii::t('user', 'Page must be an integer.'),
-                'tooSmall' => Yii::t('user', 'Page must be no less than 1.'),
+                'message' => Yii::t('app', 'Page must be an integer.'),
+                'tooSmall' => Yii::t('app', 'Page must be no less than 1.'),
             ],
             [
                 'perPage',
@@ -39,9 +39,9 @@ final class UserSearchForm extends Model
                 'min' => 1,
                 'max' => 100,
                 'skipOnEmpty' => false,
-                'message' => Yii::t('user', 'Page size must be an integer.'),
-                'tooSmall' => Yii::t('user', 'Page size must be no less than 1.'),
-                'tooBig' => Yii::t('user', 'Page size must be no greater than 100.'),
+                'message' => Yii::t('app', 'Page size must be an integer.'),
+                'tooSmall' => Yii::t('app', 'Page size must be no less than 1.'),
+                'tooBig' => Yii::t('app', 'Page size must be no greater than 100.'),
             ],
         ];
     }

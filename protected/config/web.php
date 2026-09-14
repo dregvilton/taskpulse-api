@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
+use app\extensions\DbConnection;
+use app\modules\task\Module as TaskModule;
 use app\modules\user\Module as UserModule;
 use app\services\HealthCheck\HealthCheckService;
 use yii\base\InvalidConfigException;
 use yii\caching\FileCache;
-use yii\db\Connection;
 use yii\log\FileTarget;
 use yii\rest\Serializer;
 use yii\rest\UrlRule;
@@ -35,6 +36,9 @@ return [
         ],
     ],
     'modules' => [
+        'task' => [
+            'class' => TaskModule::class,
+        ],
         'user' => [
             'class' => UserModule::class,
         ],
@@ -46,7 +50,7 @@ return [
         'db' => $db,
         'healthCheckService' => static function (): HealthCheckService {
             $db = Yii::$app->get('db', false);
-            if (!$db instanceof Connection) {
+            if (!$db instanceof DbConnection) {
                 throw new InvalidConfigException('Компонент базы данных не настроен.');
             }
 
@@ -81,6 +85,13 @@ return [
             'showScriptName' => false,
             'rules' => [
                 'health' => 'health/index',
+                'GET users/<id:\d+>/tasks' => 'task/task/user',
+                [
+                    'class' => UrlRule::class,
+                    'controller' => [
+                        'tasks' => 'task/task',
+                    ],
+                ],
                 [
                     'class' => UrlRule::class,
                     'controller' => [

@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace app\modules\user\services;
 
 use app\models\User;
+use app\modules\user\exceptions\UserNotFoundException;
+use app\modules\user\exceptions\UserSaveException;
 use app\modules\user\forms\UserForm;
-use Yii;
 use yii\data\ActiveDataProvider;
 use yii\db\Expression;
-use yii\web\NotFoundHttpException;
-use yii\web\ServerErrorHttpException;
 
 /**
  * Сервис управления пользователями.
@@ -22,17 +21,14 @@ final class UserService
      *
      * @param UserForm $form
      * @return User
-     * @throws ServerErrorHttpException
+     * @throws UserSaveException
      */
     public function create(UserForm $form): User
     {
         $user = new User();
-        $user->setAttribute('full_name', $form->fullName);
-        $user->phone = $form->phone === null ? null : (string) $form->phone;
+        $user->setAttributes($form->getUserAttributes(), false);
 
-        if (!$user->save(false)) {
-            throw new ServerErrorHttpException(Yii::t('user', 'Failed to create user.'));
-        }
+        $this->save($user);
         $user->refresh();
 
         return $user;
@@ -43,16 +39,16 @@ final class UserService
      *
      * @param int $id
      * @return User
-     * @throws NotFoundHttpException
+     * @throws UserNotFoundException
      */
-    public function get(int $id): User
+    public function getById(int $id): User
     {
         $user = User::find()
             ->where(['id' => $id, 'deleted_at' => null])
             ->one();
 
         if (!$user instanceof User) {
-            throw new NotFoundHttpException(Yii::t('user', 'User not found.'));
+            throw new UserNotFoundException("Пользователь {$id} не найден.");
         }
 
         return $user;
@@ -84,23 +80,15 @@ final class UserService
      * @param int $id
      * @param UserForm $form
      * @return User
-     * @throws NotFoundHttpException
-     * @throws ServerErrorHttpException
+     * @throws UserNotFoundException
+     * @throws UserSaveException
      */
     public function update(int $id, UserForm $form): User
     {
-        $user = $this->get($id);
+        $user = $this->getById($id);
+        $user->setAttributes($form->getUserAttributes(), false);
 
-        if ($form->hasField('fullName')) {
-            $user->setAttribute('full_name', $form->fullName);
-        }
-        if ($form->hasField('phone')) {
-            $user->phone = $form->phone === null ? null : (string) $form->phone;
-        }
-
-        if (!$user->save(false)) {
-            throw new ServerErrorHttpException(Yii::t('user', 'Failed to update user.'));
-        }
+        $this->save($user);
         $user->refresh();
 
         return $user;
@@ -111,16 +99,28 @@ final class UserService
      *
      * @param int $id
      * @return void
-     * @throws NotFoundHttpException
-     * @throws ServerErrorHttpException
+     * @throws UserNotFoundException
+     * @throws UserSaveException
      */
     public function delete(int $id): void
     {
-        $user = $this->get($id);
+        $user = $this->getById($id);
         $user->setAttribute('deleted_at', new Expression('CURRENT_TIMESTAMP'));
 
+        $this->save($user);
+    }
+
+    /**
+     * Сохранить пользователя.
+     *
+     * @param User $user
+     * @return void
+     * @throws UserSaveException
+     */
+    private function save(User $user): void
+    {
         if (!$user->save(false)) {
-            throw new ServerErrorHttpException(Yii::t('user', 'Failed to delete user.'));
+            throw new UserSaveException('Не удалось сохранить пользователя.');
         }
     }
 }
