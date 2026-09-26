@@ -4,8 +4,17 @@ declare(strict_types=1);
 
 use yii\db\Migration;
 
+/**
+ * Создать таблицу задач.
+ */
 final class m260903_000002_create_tasks_table extends Migration
 {
+    /**
+     * Создать таблицу и ограничения задач.
+     *
+     * @return void
+     * @throws \yii\db\Exception
+     */
     public function safeUp(): void
     {
         $this->createTable('{{%tasks}}', [
@@ -53,6 +62,12 @@ final class m260903_000002_create_tasks_table extends Migration
         $this->createIndex('idx-tasks-deleted_at', '{{%tasks}}', 'deleted_at');
     }
 
+    /**
+     * Удалить таблицу задач.
+     *
+     * @return void
+     * @throws \yii\db\Exception
+     */
     public function safeDown(): void
     {
         $this->dropTable('{{%tasks}}');

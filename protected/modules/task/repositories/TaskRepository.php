@@ -7,7 +7,10 @@ namespace app\modules\task\repositories;
 use app\extensions\DbConnectTrait;
 use app\models\Task;
 use app\modules\task\forms\TaskSearchForm;
+use RuntimeException;
+use yii\base\InvalidConfigException;
 use yii\data\SqlDataProvider;
+use yii\db\Exception;
 
 /**
  * Репозиторий задач.
@@ -21,6 +24,7 @@ final class TaskRepository
      *
      * @param int $id
      * @return Task|null
+     * @throws Exception
      */
     public function getById(int $id): ?Task
     {
@@ -34,6 +38,7 @@ final class TaskRepository
      *
      * @param int $id
      * @return Task|null
+     * @throws InvalidConfigException|Exception|RuntimeException
      */
     public function getByIdForUpdate(int $id): ?Task
     {
@@ -58,6 +63,7 @@ final class TaskRepository
      * @param TaskSearchForm $form
      * @param int|null $authorId
      * @return SqlDataProvider
+     * @throws InvalidConfigException|RuntimeException
      */
     public function getList(TaskSearchForm $form, ?int $authorId = null): SqlDataProvider
     {

@@ -18,6 +18,10 @@ final readonly class AnalyticsCache
     private const string GENERATION_KEY = 'taskpulse:analytics:tasks:generation';
     private const int TTL = 300;
 
+    /**
+     * @param Connection $redis
+     * @return void
+     */
     public function __construct(private Connection $redis) {}
 
     /**
@@ -26,6 +30,7 @@ final readonly class AnalyticsCache
      * @param AnalyticsFilterForm $form
      * @param callable(): array<string, int|float|null> $calculate
      * @return array<string, int|float|null>
+     * @throws Throwable
      */
     public function getOrSet(AnalyticsFilterForm $form, callable $calculate): array
     {
@@ -63,6 +68,8 @@ final readonly class AnalyticsCache
 
     /**
      * Сбросить кеш после изменения задачи.
+     *
+     * @return void
      */
     public function invalidate(): void
     {

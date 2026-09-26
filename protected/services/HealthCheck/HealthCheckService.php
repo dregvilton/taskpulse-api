@@ -9,6 +9,10 @@ use Throwable;
 
 final readonly class HealthCheckService
 {
+    /**
+     * @param DbConnection $db
+     * @return void
+     */
     public function __construct(private DbConnection $db) {}
 
     /**

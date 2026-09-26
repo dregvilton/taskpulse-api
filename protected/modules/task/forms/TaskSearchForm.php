@@ -15,28 +15,20 @@ final class TaskSearchForm extends Model
 {
     /** @var mixed ID автора. */
     public mixed $authorId = null;
-
     /** @var mixed Признак завершения. */
     public mixed $completed = null;
-
     /** @var mixed Начало периода создания. */
     public mixed $createdFrom = null;
-
     /** @var mixed Конец периода создания. */
     public mixed $createdTo = null;
-
     /** @var mixed Начало периода завершения. */
     public mixed $completedFrom = null;
-
     /** @var mixed Конец периода завершения. */
     public mixed $completedTo = null;
-
     /** @var mixed Номер страницы. */
     public mixed $page = 1;
-
     /** @var mixed Размер страницы. */
     public mixed $perPage = 20;
-
     /** @var mixed Сортировка. */
     public mixed $sort = null;
 

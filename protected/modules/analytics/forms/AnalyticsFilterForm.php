@@ -15,10 +15,8 @@ final class AnalyticsFilterForm extends Model
 {
     /** @var mixed ID автора. */
     public mixed $authorId = null;
-
     /** @var mixed Начало периода создания. */
     public mixed $createdFrom = null;
-
     /** @var mixed Конец периода создания. */
     public mixed $createdTo = null;
 

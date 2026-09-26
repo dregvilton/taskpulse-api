@@ -28,6 +28,7 @@ final class TaskService
     /**
      * @param TaskRepository $repository
      * @param AnalyticsCache $analyticsCache
+     * @return void
      */
     public function __construct(
         private readonly TaskRepository $repository,

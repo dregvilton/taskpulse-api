@@ -20,12 +20,19 @@ use yii\db\Expression;
  */
 final class User extends ActiveRecord
 {
+    /**
+     * Получить имя таблицы пользователей.
+     *
+     * @return string
+     */
     public static function tableName(): string
     {
         return '{{%users}}';
     }
 
     /**
+     * Настроить временные метки.
+     *
      * @return array<string, mixed>
      */
     public function behaviors(): array
@@ -41,6 +48,8 @@ final class User extends ActiveRecord
     }
 
     /**
+     * Поля ответа API.
+     *
      * @return array<string, string>
      */
     public function fields(): array

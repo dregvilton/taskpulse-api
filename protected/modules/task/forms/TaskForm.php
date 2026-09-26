@@ -18,22 +18,20 @@ final class TaskForm extends Model
 
     /** @var mixed ID автора. */
     public mixed $authorId = null;
-
     /** @var mixed Заголовок. */
     public mixed $title = null;
-
     /** @var mixed Описание. */
     public mixed $description = null;
-
     /** @var mixed Признак завершения. */
     public mixed $completed = false;
-
     /** @var list<string> */
     private array $providedFields = [];
 
     /**
      * @inheritDoc
      * @param array<string, mixed> $data
+     * @param string|null $formName
+     * @return bool
      */
     public function load($data, $formName = null): bool
     {
@@ -164,6 +162,8 @@ final class TaskForm extends Model
 
     /**
      * Проверить наличие данных для обновления.
+     *
+     * @return void
      */
     public function validateChanges(): void
     {

@@ -12,6 +12,7 @@ use yii\base\InvalidConfigException;
  */
 trait DbConnectTrait
 {
+    /** @var DbConnection|null Текущее подключение к базе данных. */
     private ?DbConnection $dbConnection = null;
 
     /**
