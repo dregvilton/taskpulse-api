@@ -6,7 +6,6 @@ namespace app\modules\task\controllers;
 
 use app\controllers\BaseController;
 use app\models\Task;
-use app\modules\task\dto\TaskCreationResult;
 use app\modules\task\exceptions\IdempotencyConflictException;
 use app\modules\task\exceptions\TaskNotFoundException;
 use app\modules\task\forms\TaskForm;
@@ -170,14 +169,14 @@ final class TaskController extends BaseController
                     : $this->taskService->createIdempotent($form, $key, $requestHash);
             }
 
-            $taskId = $result instanceof TaskCreationResult ? $result->taskId : $result->id;
+            $taskId = is_array($result) ? $result['taskId'] : $result->id;
             $this->response->setStatusCode(self::CREATED);
             $this->response->headers->set(
                 'Location',
                 Url::toRoute(['/task/task/view', 'id' => $taskId]),
             );
 
-            return $result instanceof TaskCreationResult ? $result->body : $result;
+            return is_array($result) ? $result['body'] : $result;
         } catch (IdempotencyConflictException $exception) {
             throw new ConflictHttpException(
                 message: Yii::t('task', 'Idempotency key was already used for another request.'),

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use yii\db\Exception;
 use yii\db\Migration;
 
 /**
@@ -13,7 +14,7 @@ final class m260828_000001_create_users_table extends Migration
      * Создать таблицу пользователей.
      *
      * @return void
-     * @throws \yii\db\Exception
+     * @throws Exception
      */
     public function safeUp(): void
     {
@@ -33,7 +34,7 @@ final class m260828_000001_create_users_table extends Migration
      * Удалить таблицу пользователей.
      *
      * @return void
-     * @throws \yii\db\Exception
+     * @throws Exception
      */
     public function safeDown(): void
     {

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use yii\db\Exception;
 use yii\db\Migration;
 
 /**
@@ -11,7 +12,7 @@ final class m260926_000003_create_idempotency_keys_table extends Migration
 {
     /**
      * @return void
-     * @throws \yii\db\Exception
+     * @throws Exception
      */
     public function safeUp(): void
     {
@@ -44,7 +45,7 @@ final class m260926_000003_create_idempotency_keys_table extends Migration
 
     /**
      * @return void
-     * @throws \yii\db\Exception
+     * @throws Exception
      */
     public function safeDown(): void
     {

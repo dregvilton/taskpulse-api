@@ -7,7 +7,6 @@ namespace app\modules\task\services;
 use app\extensions\DbConnectTrait;
 use app\models\Task;
 use app\models\User;
-use app\modules\task\dto\TaskCreationResult;
 use app\modules\task\exceptions\IdempotencyConflictException;
 use app\modules\task\exceptions\TaskNotFoundException;
 use app\modules\task\exceptions\TaskSaveException;
@@ -20,7 +19,9 @@ use app\services\AnalyticsCache;
 use JsonException;
 use RuntimeException;
 use Throwable;
+use yii\base\InvalidConfigException;
 use yii\data\SqlDataProvider;
+use yii\db\Exception;
 use yii\db\Expression;
 
 /**
@@ -95,11 +96,14 @@ final class TaskService
      *
      * @param string $key
      * @param string $requestHash
-     * @return TaskCreationResult|null
+     * @return array{
+     *     taskId: int,
+     *     body: array<string, mixed>
+     * }|null
      * @throws IdempotencyConflictException|JsonException|RuntimeException
-     * @throws \yii\base\InvalidConfigException|\yii\db\Exception
+     * @throws InvalidConfigException|Exception
      */
-    public function findCreation(string $key, string $requestHash): ?TaskCreationResult
+    public function findCreation(string $key, string $requestHash): ?array
     {
         $row = $this->idempotencyRepository->getByKey($key);
 
@@ -112,10 +116,13 @@ final class TaskService
      * @param TaskForm $form
      * @param string $key
      * @param string $requestHash
-     * @return TaskCreationResult
+     * @return array{
+     *     taskId: int,
+     *     body: array<string, mixed>
+     * }
      * @throws Throwable
      */
-    public function createIdempotent(TaskForm $form, string $key, string $requestHash): TaskCreationResult
+    public function createIdempotent(TaskForm $form, string $key, string $requestHash): array
     {
         $transaction = $this->getDbConnection()->beginTransaction();
 
@@ -141,7 +148,10 @@ final class TaskService
             $transaction->commit();
             $this->analyticsCache->invalidate();
 
-            return new TaskCreationResult((int) $task->id, $body);
+            return [
+                'taskId' => (int) $task->id,
+                'body' => $body,
+            ];
         } catch (Throwable $exception) {
             if ($transaction->isActive) {
                 $transaction->rollBack();
@@ -174,10 +184,13 @@ final class TaskService
     /**
      * @param array<string, mixed> $row
      * @param string $requestHash
-     * @return TaskCreationResult
+     * @return array{
+     *     taskId: int,
+     *     body: array<string, mixed>
+     * }
      * @throws IdempotencyConflictException|JsonException|RuntimeException
      */
-    private function restoreCreation(array $row, string $requestHash): TaskCreationResult
+    private function restoreCreation(array $row, string $requestHash): array
     {
         if (!hash_equals((string) $row['request_hash'], $requestHash)) {
             throw new IdempotencyConflictException('Ключ уже использован для другого запроса.');
@@ -192,7 +205,10 @@ final class TaskService
             throw new RuntimeException('Сохранённый ответ задачи имеет неверный формат.');
         }
 
-        return new TaskCreationResult((int) $row['task_id'], $body);
+        return [
+            'taskId' => (int) $row['task_id'],
+            'body' => $body,
+        ];
     }
 
     /**
