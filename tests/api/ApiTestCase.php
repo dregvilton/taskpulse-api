@@ -22,7 +22,7 @@ abstract class ApiTestCase extends TestCase
         $db = Yii::$app->get('db');
         $this->db = $db;
 
-        $this->db->createCommand('TRUNCATE TABLE tasks, users RESTART IDENTITY CASCADE')->execute();
+        $this->db->createCommand('TRUNCATE TABLE idempotency_keys, tasks, users RESTART IDENTITY CASCADE')->execute();
     }
 
     /**
@@ -31,6 +31,7 @@ abstract class ApiTestCase extends TestCase
      * @param string $method
      * @param string $path
      * @param array<string, mixed>|null $body
+     * @param array<string, string> $extraHeaders
      * @return array{
      *     status: int,
      *     headers: array<string, string>,
@@ -38,9 +39,12 @@ abstract class ApiTestCase extends TestCase
      * }
      * @throws JsonException
      */
-    protected function request(string $method, string $path, ?array $body = null): array
+    protected function request(string $method, string $path, ?array $body = null, array $extraHeaders = []): array
     {
         $headers = ['Accept: application/json'];
+        foreach ($extraHeaders as $name => $value) {
+            $headers[] = "{$name}: {$value}";
+        }
         $options = [
             'method' => $method,
             'ignore_errors' => true,
