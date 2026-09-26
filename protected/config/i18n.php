@@ -6,6 +6,13 @@ use yii\i18n\PhpMessageSource;
 
 return [
     'translations' => [
+        'analytics*' => [
+            'class' => PhpMessageSource::class,
+            'basePath' => '@app/messages',
+            'fileMap' => [
+                'analytics' => 'analytics.php',
+            ],
+        ],
         'app*' => [
             'class' => PhpMessageSource::class,
             'basePath' => '@app/messages',

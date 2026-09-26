@@ -8,6 +8,7 @@ require dirname(__DIR__) . '/vendor/yiisoft/yii2/Yii.php';
 
 $db = require dirname(__DIR__) . '/protected/config/db.php';
 $i18n = require dirname(__DIR__) . '/protected/config/i18n.php';
+$redis = require dirname(__DIR__) . '/protected/config/redis.php';
 
 new yii\console\Application([
     'id' => 'taskpulse-tests',
@@ -17,5 +18,6 @@ new yii\console\Application([
     'components' => [
         'db' => $db,
         'i18n' => $i18n,
+        'redis' => $redis,
     ],
 ]);

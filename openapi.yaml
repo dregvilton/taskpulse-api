@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: TaskPulse API
-  version: 0.2.0
+  version: 0.3.0
 servers:
   - url: http://localhost:8080
 paths:
@@ -18,6 +18,28 @@ paths:
                 $ref: '#/components/schemas/Health'
         '503':
           description: Одна из зависимостей недоступна
+  /analytics/tasks:
+    get:
+      tags: [Analytics]
+      summary: Получить аналитику задач
+      description: |
+        Учитываются неудалённые задачи, созданные в выбранный период. Число завершённых
+        и процент выполнения относятся к той же выборке. Среднее время считается только
+        по завершённым задачам; если их нет, возвращается null. Результат кешируется
+        в Redis на 300 секунд и инвалидируется после изменения задачи через API.
+      parameters:
+        - $ref: '#/components/parameters/AuthorId'
+        - $ref: '#/components/parameters/CreatedFrom'
+        - $ref: '#/components/parameters/CreatedTo'
+      responses:
+        '200':
+          description: Агрегированные показатели задач
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAnalytics'
+        '422':
+          $ref: '#/components/responses/ValidationError'
   /users:
     get:
       tags: [Users]
@@ -340,6 +362,26 @@ components:
           schema:
             $ref: '#/components/schemas/TaskList'
   schemas:
+    TaskAnalytics:
+      type: object
+      required: [totalCreated, totalCompleted, completionPercent, avgCompletionTimeSeconds]
+      properties:
+        totalCreated:
+          type: integer
+          minimum: 0
+        totalCompleted:
+          type: integer
+          minimum: 0
+        completionPercent:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+        avgCompletionTimeSeconds:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
     Health:
       type: object
       required: [status, services]

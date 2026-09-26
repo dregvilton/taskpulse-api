@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+use app\services\AnalyticsCache;
+use yii\base\InvalidConfigException;
 use yii\caching\FileCache;
 use yii\log\FileTarget;
+use yii\redis\Connection as RedisConnection;
 
 $db = require __DIR__ . '/db.php';
 $i18n = require __DIR__ . '/i18n.php';
 $params = require __DIR__ . '/params.php';
+$redis = require __DIR__ . '/redis.php';
 
 return [
     'id' => 'taskpulse-console',
@@ -19,6 +23,14 @@ return [
     'language' => 'ru-RU',
     'sourceLanguage' => 'en-US',
     'components' => [
+        'analyticsCache' => static function (): AnalyticsCache {
+            $redis = Yii::$app->get('redis', false);
+            if (!$redis instanceof RedisConnection) {
+                throw new InvalidConfigException('Компонент Redis не настроен.');
+            }
+
+            return new AnalyticsCache($redis);
+        },
         'cache' => [
             'class' => FileCache::class,
         ],
@@ -34,6 +46,7 @@ return [
                 ],
             ],
         ],
+        'redis' => $redis,
     ],
     'controllerMap' => [
         'migrate' => [
