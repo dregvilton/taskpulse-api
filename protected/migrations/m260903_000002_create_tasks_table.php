@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use yii\db\Exception;
 use yii\db\Migration;
 
 /**
@@ -13,7 +14,7 @@ final class m260903_000002_create_tasks_table extends Migration
      * Создать таблицу и ограничения задач.
      *
      * @return void
-     * @throws \yii\db\Exception
+     * @throws Exception
      */
     public function safeUp(): void
     {
@@ -66,7 +67,7 @@ final class m260903_000002_create_tasks_table extends Migration
      * Удалить таблицу задач.
      *
      * @return void
-     * @throws \yii\db\Exception
+     * @throws Exception
      */
     public function safeDown(): void
     {

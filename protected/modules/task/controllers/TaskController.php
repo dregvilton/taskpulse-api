@@ -6,6 +6,7 @@ namespace app\modules\task\controllers;
 
 use app\controllers\BaseController;
 use app\models\Task;
+use app\modules\task\exceptions\IdempotencyConflictException;
 use app\modules\task\exceptions\TaskNotFoundException;
 use app\modules\task\forms\TaskForm;
 use app\modules\task\forms\TaskSearchForm;
@@ -17,6 +18,7 @@ use Yii;
 use yii\base\InvalidConfigException;
 use yii\data\SqlDataProvider;
 use yii\helpers\Url;
+use yii\web\ConflictHttpException;
 use yii\web\NotFoundHttpException;
 use yii\web\ServerErrorHttpException;
 
@@ -137,27 +139,49 @@ final class TaskController extends BaseController
     /**
      * Создать задачу.
      *
-     * @return Task|TaskForm
+     * @return Task|TaskForm|array<string, mixed>
+     * @throws ConflictHttpException
      * @throws ServerErrorHttpException
      */
-    public function actionCreate(): Task|TaskForm
+    public function actionCreate(): Task|TaskForm|array
     {
+        $body = $this->request->getBodyParams();
         $form = new TaskForm(['scenario' => TaskForm::SCENARIO_CREATE]);
-        $form->load($this->request->getBodyParams(), '');
+        $form->load($body, '');
+        $form->idempotencyKey = $this->request->headers->get('Idempotency-Key');
 
-        if (!$form->validate()) {
+        if (!$form->validate(['idempotencyKey'])) {
             return $form;
         }
 
         try {
-            $task = $this->taskService->create($form);
+            $key = $form->idempotencyKey;
+            $requestHash = $key === null ? null : $this->taskService->getCreationFingerprint($body);
+            $result = $key === null ? null : $this->taskService->findCreation($key, $requestHash);
+
+            if ($result === null) {
+                if (!$form->validate()) {
+                    return $form;
+                }
+
+                $result = $key === null
+                    ? $this->taskService->create($form)
+                    : $this->taskService->createIdempotent($form, $key, $requestHash);
+            }
+
+            $taskId = is_array($result) ? $result['taskId'] : $result->id;
             $this->response->setStatusCode(self::CREATED);
             $this->response->headers->set(
                 'Location',
-                Url::toRoute(['/task/task/view', 'id' => $task->id]),
+                Url::toRoute(['/task/task/view', 'id' => $taskId]),
             );
 
-            return $task;
+            return is_array($result) ? $result['body'] : $result;
+        } catch (IdempotencyConflictException $exception) {
+            throw new ConflictHttpException(
+                message: Yii::t('task', 'Idempotency key was already used for another request.'),
+                previous: $exception,
+            );
         } catch (Throwable $exception) {
             Yii::error($exception, __METHOD__);
 

@@ -24,6 +24,8 @@ final class TaskForm extends Model
     public mixed $description = null;
     /** @var mixed Признак завершения. */
     public mixed $completed = false;
+    /** @var string|null Ключ идемпотентности из заголовка. */
+    public ?string $idempotencyKey = null;
     /** @var list<string> */
     private array $providedFields = [];
 
@@ -49,6 +51,27 @@ final class TaskForm extends Model
     public function rules(): array
     {
         return [
+            [
+                'idempotencyKey',
+                'required',
+                'when' => static fn(self $form): bool => $form->idempotencyKey !== null,
+                'message' => Yii::t('task', 'Idempotency key must not be empty.'),
+                'on' => self::SCENARIO_CREATE,
+            ],
+            [
+                'idempotencyKey',
+                'match',
+                'pattern' => '/\S/u',
+                'message' => Yii::t('task', 'Idempotency key must not be empty.'),
+                'on' => self::SCENARIO_CREATE,
+            ],
+            [
+                'idempotencyKey',
+                'string',
+                'max' => 255,
+                'tooLong' => Yii::t('task', 'Idempotency key must contain at most 255 characters.'),
+                'on' => self::SCENARIO_CREATE,
+            ],
             [
                 'authorId',
                 'required',

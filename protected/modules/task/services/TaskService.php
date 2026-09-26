@@ -7,15 +7,21 @@ namespace app\modules\task\services;
 use app\extensions\DbConnectTrait;
 use app\models\Task;
 use app\models\User;
+use app\modules\task\exceptions\IdempotencyConflictException;
 use app\modules\task\exceptions\TaskNotFoundException;
 use app\modules\task\exceptions\TaskSaveException;
 use app\modules\task\forms\TaskForm;
 use app\modules\task\forms\TaskSearchForm;
+use app\modules\task\repositories\IdempotencyRepository;
 use app\modules\task\repositories\TaskRepository;
 use app\modules\user\exceptions\UserNotFoundException;
 use app\services\AnalyticsCache;
+use JsonException;
+use RuntimeException;
 use Throwable;
+use yii\base\InvalidConfigException;
 use yii\data\SqlDataProvider;
+use yii\db\Exception;
 use yii\db\Expression;
 
 /**
@@ -27,11 +33,13 @@ final class TaskService
 
     /**
      * @param TaskRepository $repository
+     * @param IdempotencyRepository $idempotencyRepository
      * @param AnalyticsCache $analyticsCache
      * @return void
      */
     public function __construct(
         private readonly TaskRepository $repository,
+        private readonly IdempotencyRepository $idempotencyRepository,
         private readonly AnalyticsCache $analyticsCache,
     ) {}
 
@@ -44,6 +52,122 @@ final class TaskService
      */
     public function create(TaskForm $form): Task
     {
+        $task = $this->createTask($form);
+        $this->analyticsCache->invalidate();
+
+        return $task;
+    }
+
+    /**
+     * Получить отпечаток тела запроса до валидации.
+     *
+     * @param array<string, mixed> $body
+     * @return string
+     * @throws JsonException
+     */
+    public function getCreationFingerprint(array $body): string
+    {
+        return hash('sha256', json_encode($this->sortRequestBody($body), JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * Сортировать ключи JSON-объектов, не меняя порядок списков.
+     *
+     * @param array<array-key, mixed> $body
+     * @return array<array-key, mixed>
+     */
+    private function sortRequestBody(array $body): array
+    {
+        if (!array_is_list($body)) {
+            ksort($body);
+        }
+
+        foreach ($body as $key => $value) {
+            if (is_array($value)) {
+                $body[$key] = $this->sortRequestBody($value);
+            }
+        }
+
+        return $body;
+    }
+
+    /**
+     * Найти ответ на уже обработанный запрос.
+     *
+     * @param string $key
+     * @param string $requestHash
+     * @return array{
+     *     taskId: int,
+     *     body: array<string, mixed>
+     * }|null
+     * @throws IdempotencyConflictException|JsonException|RuntimeException
+     * @throws InvalidConfigException|Exception
+     */
+    public function findCreation(string $key, string $requestHash): ?array
+    {
+        $row = $this->idempotencyRepository->getByKey($key);
+
+        return $row === false ? null : $this->restoreCreation($row, $requestHash);
+    }
+
+    /**
+     * Атомарно сохранить задачу и ответ для ключа идемпотентности.
+     *
+     * @param TaskForm $form
+     * @param string $key
+     * @param string $requestHash
+     * @return array{
+     *     taskId: int,
+     *     body: array<string, mixed>
+     * }
+     * @throws Throwable
+     */
+    public function createIdempotent(TaskForm $form, string $key, string $requestHash): array
+    {
+        $transaction = $this->getDbConnection()->beginTransaction();
+
+        try {
+            if ($this->idempotencyRepository->claim($key, $requestHash) === false) {
+                $result = $this->findCreation($key, $requestHash);
+                if ($result === null) {
+                    throw new RuntimeException('Не удалось получить сохранённый ответ задачи.');
+                }
+
+                $transaction->commit();
+
+                return $result;
+            }
+
+            $task = $this->createTask($form);
+            $body = $task->toArray();
+            $encodedBody = json_encode($body, JSON_THROW_ON_ERROR);
+            if ($this->idempotencyRepository->complete($key, (int) $task->id, $encodedBody) !== 1) {
+                throw new RuntimeException('Не удалось сохранить ответ задачи.');
+            }
+
+            $transaction->commit();
+            $this->analyticsCache->invalidate();
+
+            return [
+                'taskId' => (int) $task->id,
+                'body' => $body,
+            ];
+        } catch (Throwable $exception) {
+            if ($transaction->isActive) {
+                $transaction->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @param TaskForm $form
+     * @return Task
+     * @throws TaskSaveException
+     */
+    private function createTask(TaskForm $form): Task
+    {
         $task = new Task();
         $task->setAttributes($form->getTaskAttributes(), false);
         $task->setAttribute(
@@ -52,10 +176,39 @@ final class TaskService
         );
 
         $this->save($task);
-        $this->analyticsCache->invalidate();
         $task->refresh();
 
         return $task;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param string $requestHash
+     * @return array{
+     *     taskId: int,
+     *     body: array<string, mixed>
+     * }
+     * @throws IdempotencyConflictException|JsonException|RuntimeException
+     */
+    private function restoreCreation(array $row, string $requestHash): array
+    {
+        if (!hash_equals((string) $row['request_hash'], $requestHash)) {
+            throw new IdempotencyConflictException('Ключ уже использован для другого запроса.');
+        }
+
+        if ($row['task_id'] === null || !is_string($row['response_body'])) {
+            throw new RuntimeException('Сохранённый ответ задачи не завершён.');
+        }
+
+        $body = json_decode($row['response_body'], true, flags: JSON_THROW_ON_ERROR);
+        if (!is_array($body) || array_is_list($body)) {
+            throw new RuntimeException('Сохранённый ответ задачи имеет неверный формат.');
+        }
+
+        return [
+            'taskId' => (int) $row['task_id'],
+            'body' => $body,
+        ];
     }
 
     /**

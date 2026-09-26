@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: TaskPulse API
-  version: 0.3.0
+  version: 0.4.0
 servers:
   - url: http://localhost:8080
 paths:
@@ -180,6 +180,14 @@ paths:
     post:
       tags: [Tasks]
       summary: Создать задачу
+      description: |
+        Заголовок Idempotency-Key необязателен. При повторе того же запроса с тем же
+        ключом возвращаются исходные 201, Location и тело ответа, даже если задача
+        позже была изменена. Тот же ключ с другим телом запроса возвращает 409.
+        Ключи хранятся в PostgreSQL без срока действия; Redis для идемпотентности
+        не используется.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -188,7 +196,7 @@ paths:
               $ref: '#/components/schemas/CreateTask'
       responses:
         '201':
-          description: Задача создана
+          description: Задача создана или возвращён сохранённый ответ
           headers:
             Location:
               description: URL созданной задачи
@@ -201,6 +209,8 @@ paths:
                 $ref: '#/components/schemas/Task'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /tasks/{id}:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -247,6 +257,16 @@ paths:
           $ref: '#/components/responses/NotFound'
 components:
   parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Уникальный ключ создания задачи. Повторно используйте только с тем же телом запроса.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 255
+        pattern: '\S'
     UserId:
       name: id
       in: path
@@ -322,6 +342,12 @@ components:
         type: string
         default: -createdAt
   responses:
+    Conflict:
+      description: Ключ идемпотентности уже использован для другого запроса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     BadRequest:
       description: Некорректный запрос
       content:
