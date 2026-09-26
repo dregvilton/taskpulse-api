@@ -25,12 +25,19 @@ use yii\db\Expression;
  */
 final class Task extends ActiveRecord
 {
+    /**
+     * Получить имя таблицы задач.
+     *
+     * @return string
+     */
     public static function tableName(): string
     {
         return '{{%tasks}}';
     }
 
     /**
+     * Настроить временные метки.
+     *
      * @return array<string, mixed>
      */
     public function behaviors(): array
@@ -56,6 +63,8 @@ final class Task extends ActiveRecord
     }
 
     /**
+     * Поля ответа API.
+     *
      * @return array<string, string>
      */
     public function fields(): array

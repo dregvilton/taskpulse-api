@@ -17,16 +17,16 @@ final class UserForm extends Model
 
     /** @var mixed Полное имя. */
     public mixed $fullName = null;
-
     /** @var mixed Телефон. */
     public mixed $phone = null;
-
     /** @var list<string> */
     private array $providedFields = [];
 
     /**
      * @inheritDoc
      * @param array<string, mixed> $data
+     * @param string|null $formName
+     * @return bool
      */
     public function load($data, $formName = null): bool
     {
@@ -129,6 +129,8 @@ final class UserForm extends Model
 
     /**
      * Проверить наличие данных для обновления.
+     *
+     * @return void
      */
     public function validateChanges(): void
     {

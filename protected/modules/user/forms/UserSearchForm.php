@@ -14,7 +14,6 @@ final class UserSearchForm extends Model
 {
     /** @var mixed Номер страницы. */
     public mixed $page = 1;
-
     /** @var mixed Размер страницы. */
     public mixed $perPage = 20;
 

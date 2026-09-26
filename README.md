@@ -6,11 +6,12 @@ TaskPulse is a production-style task management and analytics REST API built as 
 
 - PHP 8.3 and Yii2 2.0.55
 - PostgreSQL 16
+- Redis 7
 - Nginx and PHP-FPM
 - Docker Compose
 - PHPUnit, PHPStan, and PHP CS Fixer
 
-Redis, RabbitMQ, and CI will be added in later feature iterations.
+RabbitMQ and CI will be added in later feature iterations.
 
 ## Local setup
 
@@ -69,6 +70,21 @@ DELETE /tasks/{id}
 При изменении `completed` поле `completedAt` устанавливается или очищается автоматически.
 Удаление задач выполняется мягко.
 
+## Аналитика задач
+
+```bash
+curl 'http://localhost:8080/analytics/tasks?authorId=1&createdFrom=2026-09-01T00%3A00%3A00%2B00%3A00'
+```
+
+Ответ содержит `totalCreated`, `totalCompleted`, `completionPercent` и
+`avgCompletionTimeSeconds`. Период относится к дате создания задачи; удалённые задачи
+не учитываются. Среднее время равно `null`, если завершённых задач нет.
+
+Результаты кешируются в Redis на 300 секунд. Изменения задач через API инвалидируют
+кеш всех фильтров. При недоступности Redis аналитика рассчитывается из PostgreSQL;
+если Redis был недоступен во время записи задачи, старое значение может сохраняться
+до истечения TTL.
+
 ## Development commands
 
 ```bash
@@ -84,4 +100,4 @@ make logs               # follow container logs
 
 ## Iteration workflow
 
-The application foundation is developed directly on `main`. Every subsequent iteration is developed in a dedicated `codex/iteration-*` branch and reviewed through a pull request before merging.
+Каждая итерация разрабатывается в отдельной ветке `iteration-*` и проверяется через pull request перед слиянием.

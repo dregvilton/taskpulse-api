@@ -17,6 +17,8 @@ class DbConnection extends Connection
      * @inheritDoc
      * @param string|null $sql
      * @param array<string, mixed> $params
+     * @return Command
+     * @throws RuntimeException
      */
     public function createCommand($sql = null, $params = []): Command
     {
@@ -32,6 +34,7 @@ class DbConnection extends Connection
      *
      * @param string $file
      * @return string
+     * @throws RuntimeException
      */
     public function getSql(string $file): string
     {

@@ -4,8 +4,17 @@ declare(strict_types=1);
 
 use yii\db\Migration;
 
+/**
+ * Создать таблицу пользователей.
+ */
 final class m260828_000001_create_users_table extends Migration
 {
+    /**
+     * Создать таблицу пользователей.
+     *
+     * @return void
+     * @throws \yii\db\Exception
+     */
     public function safeUp(): void
     {
         $this->createTable('{{%users}}', [
@@ -20,6 +29,12 @@ final class m260828_000001_create_users_table extends Migration
         $this->createIndex('idx-users-deleted_at', '{{%users}}', 'deleted_at');
     }
 
+    /**
+     * Удалить таблицу пользователей.
+     *
+     * @return void
+     * @throws \yii\db\Exception
+     */
     public function safeDown(): void
     {
         $this->dropTable('{{%users}}');

@@ -14,7 +14,10 @@ final class Module extends \yii\base\Module
     /** @inheritDoc */
     public $controllerNamespace = 'app\\modules\\user\\controllers';
 
-    /** @inheritDoc */
+    /**
+     * @inheritDoc
+     * @return void
+     */
     public function init(): void
     {
         parent::init();

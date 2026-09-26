@@ -24,12 +24,14 @@ use yii\web\ServerErrorHttpException;
  */
 final class UserController extends BaseController
 {
+    /** @var UserService Сервис пользователей. */
     private readonly UserService $userService;
 
     /**
      * @param string $id
      * @param Module $module
      * @param array<string, mixed> $config
+     * @return void
      * @throws InvalidConfigException
      */
     public function __construct(string $id, Module $module, array $config = [])

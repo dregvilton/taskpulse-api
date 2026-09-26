@@ -13,6 +13,7 @@ use app\modules\task\forms\TaskForm;
 use app\modules\task\forms\TaskSearchForm;
 use app\modules\task\repositories\TaskRepository;
 use app\modules\user\exceptions\UserNotFoundException;
+use app\services\AnalyticsCache;
 use Throwable;
 use yii\data\SqlDataProvider;
 use yii\db\Expression;
@@ -26,8 +27,13 @@ final class TaskService
 
     /**
      * @param TaskRepository $repository
+     * @param AnalyticsCache $analyticsCache
+     * @return void
      */
-    public function __construct(private readonly TaskRepository $repository) {}
+    public function __construct(
+        private readonly TaskRepository $repository,
+        private readonly AnalyticsCache $analyticsCache,
+    ) {}
 
     /**
      * Создать задачу.
@@ -46,6 +52,7 @@ final class TaskService
         );
 
         $this->save($task);
+        $this->analyticsCache->invalidate();
         $task->refresh();
 
         return $task;
@@ -111,6 +118,7 @@ final class TaskService
         $task->setAttributes($form->getTaskAttributes(), false);
 
         $this->save($task);
+        $this->analyticsCache->invalidate();
         $task->refresh();
 
         return $task;
@@ -130,6 +138,7 @@ final class TaskService
         $task->setAttribute('deleted_at', new Expression('CURRENT_TIMESTAMP'));
 
         $this->save($task);
+        $this->analyticsCache->invalidate();
     }
 
     /**
@@ -163,6 +172,7 @@ final class TaskService
 
             $this->save($task);
             $transaction->commit();
+            $this->analyticsCache->invalidate();
             $task->refresh();
 
             return $task;

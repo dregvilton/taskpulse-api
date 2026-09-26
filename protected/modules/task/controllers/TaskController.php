@@ -25,12 +25,14 @@ use yii\web\ServerErrorHttpException;
  */
 final class TaskController extends BaseController
 {
+    /** @var TaskService Сервис задач. */
     private readonly TaskService $taskService;
 
     /**
      * @param string $id
      * @param Module $module
      * @param array<string, mixed> $config
+     * @return void
      * @throws InvalidConfigException
      */
     public function __construct(string $id, Module $module, array $config = [])
