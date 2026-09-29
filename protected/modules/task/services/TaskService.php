@@ -13,6 +13,7 @@ use app\modules\task\exceptions\TaskSaveException;
 use app\modules\task\forms\TaskForm;
 use app\modules\task\forms\TaskSearchForm;
 use app\modules\task\repositories\IdempotencyRepository;
+use app\modules\task\repositories\TaskEventRepository;
 use app\modules\task\repositories\TaskRepository;
 use app\modules\user\exceptions\UserNotFoundException;
 use app\services\AnalyticsCache;
@@ -34,12 +35,14 @@ final class TaskService
     /**
      * @param TaskRepository $repository
      * @param IdempotencyRepository $idempotencyRepository
+     * @param TaskEventRepository $eventRepository
      * @param AnalyticsCache $analyticsCache
      * @return void
      */
     public function __construct(
         private readonly TaskRepository $repository,
         private readonly IdempotencyRepository $idempotencyRepository,
+        private readonly TaskEventRepository $eventRepository,
         private readonly AnalyticsCache $analyticsCache,
     ) {}
 
@@ -52,7 +55,7 @@ final class TaskService
      */
     public function create(TaskForm $form): Task
     {
-        $task = $this->createTask($form);
+        $task = $this->persistWithEvent(fn(): Task => $this->createTask($form), 'created');
         $this->analyticsCache->invalidate();
 
         return $task;
@@ -139,6 +142,7 @@ final class TaskService
             }
 
             $task = $this->createTask($form);
+            $this->eventRepository->append($task, 'created');
             $body = $task->toArray();
             $encodedBody = json_encode($body, JSON_THROW_ON_ERROR);
             if ($this->idempotencyRepository->complete($key, (int) $task->id, $encodedBody) !== 1) {
@@ -267,10 +271,13 @@ final class TaskService
             return $this->updateState($id, $form);
         }
 
-        $task = $this->getExistingTask($id);
-        $task->setAttributes($form->getTaskAttributes(), false);
+        $task = $this->persistWithEvent(function () use ($id, $form): Task {
+            $task = $this->getExistingTask($id);
+            $task->setAttributes($form->getTaskAttributes(), false);
+            $this->save($task);
 
-        $this->save($task);
+            return $task;
+        }, 'updated');
         $this->analyticsCache->invalidate();
         $task->refresh();
 
@@ -287,10 +294,13 @@ final class TaskService
      */
     public function delete(int $id): void
     {
-        $task = $this->getExistingTask($id);
-        $task->setAttribute('deleted_at', new Expression('CURRENT_TIMESTAMP'));
+        $this->persistWithEvent(function () use ($id): Task {
+            $task = $this->getExistingTask($id);
+            $task->setAttribute('deleted_at', new Expression('CURRENT_TIMESTAMP'));
+            $this->save($task);
 
-        $this->save($task);
+            return $task;
+        }, 'deleted');
         $this->analyticsCache->invalidate();
     }
 
@@ -324,9 +334,35 @@ final class TaskService
             }
 
             $this->save($task);
+            $this->eventRepository->append($task, 'updated');
             $transaction->commit();
             $this->analyticsCache->invalidate();
             $task->refresh();
+
+            return $task;
+        } catch (Throwable $exception) {
+            if ($transaction->isActive) {
+                $transaction->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @param callable(): Task $operation
+     * @param string $eventType
+     * @return Task
+     * @throws Throwable
+     */
+    private function persistWithEvent(callable $operation, string $eventType): Task
+    {
+        $transaction = $this->getDbConnection()->beginTransaction();
+
+        try {
+            $task = $operation();
+            $this->eventRepository->append($task, $eventType);
+            $transaction->commit();
 
             return $task;
         } catch (Throwable $exception) {

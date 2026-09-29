@@ -11,6 +11,9 @@
         <testsuite name="api">
             <directory>tests/api</directory>
         </testsuite>
+        <testsuite name="integration">
+            <directory>tests/integration</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

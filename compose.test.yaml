@@ -1,0 +1,20 @@
+services:
+  app:
+    image: taskpulse-app:latest
+    environment:
+      APP_ENV: test
+      DB_NAME: taskpulse_test
+
+  publisher:
+    environment:
+      APP_ENV: test
+      DB_NAME: taskpulse_test
+
+  worker:
+    environment:
+      APP_ENV: test
+      DB_NAME: taskpulse_test
+
+  postgres:
+    environment:
+      POSTGRES_DB: taskpulse_test
