@@ -22,7 +22,7 @@ final class HealthController extends BaseController
     }
 
     /**
-     * @return array{status: 'ok'|'error', services: array{app: 'ok', postgres: 'ok'|'error'}}
+     * @return array{status: 'ok'|'error', services: array<string, 'ok'|'error'>}
      * @throws ServerErrorHttpException|InvalidConfigException
      */
     public function actionIndex(): array

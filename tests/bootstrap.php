@@ -13,6 +13,7 @@ if (($_ENV['APP_ENV'] ?? '') !== 'test' || !str_ends_with($_ENV['DB_NAME'] ?? ''
 $db = require dirname(__DIR__) . '/protected/config/db.php';
 $i18n = require dirname(__DIR__) . '/protected/config/i18n.php';
 $redis = require dirname(__DIR__) . '/protected/config/redis.php';
+$rabbitMq = require dirname(__DIR__) . '/protected/config/rabbitmq.php';
 
 new yii\console\Application([
     'id' => 'taskpulse-tests',
@@ -23,5 +24,6 @@ new yii\console\Application([
         'db' => $db,
         'i18n' => $i18n,
         'redis' => $redis,
+        'taskEventBroker' => $rabbitMq,
     ],
 ]);

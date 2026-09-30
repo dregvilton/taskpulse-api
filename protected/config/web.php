@@ -2,15 +2,18 @@
 
 declare(strict_types=1);
 
+use app\components\JsonLogTarget;
+use app\components\RequestContext;
+use app\components\SentryLogTarget;
 use app\extensions\DbConnection;
 use app\modules\analytics\Module as AnalyticsModule;
 use app\modules\task\Module as TaskModule;
 use app\modules\user\Module as UserModule;
 use app\services\AnalyticsCache;
 use app\services\HealthCheck\HealthCheckService;
+use app\services\TaskEventBroker;
 use yii\base\InvalidConfigException;
 use yii\caching\FileCache;
-use yii\log\FileTarget;
 use yii\redis\Connection as RedisConnection;
 use yii\rest\Serializer;
 use yii\rest\UrlRule;
@@ -21,6 +24,8 @@ $db = require __DIR__ . '/db.php';
 $i18n = require __DIR__ . '/i18n.php';
 $params = require __DIR__ . '/params.php';
 $redis = require __DIR__ . '/redis.php';
+$rabbitMq = require __DIR__ . '/rabbitmq.php';
+$requestContext = new RequestContext();
 
 return [
     'id' => 'taskpulse-api',
@@ -29,6 +34,9 @@ return [
     'runtimePath' => dirname(__DIR__) . '/runtime',
     'controllerNamespace' => 'app\\controllers',
     'bootstrap' => ['log'],
+    'on beforeRequest' => static function () use ($requestContext): void {
+        $requestContext->start(Yii::$app->request->headers->get('X-Request-Id'));
+    },
     'language' => 'ru-RU',
     'sourceLanguage' => 'en-US',
     'container' => [
@@ -69,20 +77,61 @@ return [
                 throw new InvalidConfigException('Компонент базы данных не настроен.');
             }
 
-            return new HealthCheckService($db);
+            $redis = Yii::$app->get('redis', false);
+            if (!$redis instanceof RedisConnection) {
+                throw new InvalidConfigException('Компонент Redis не настроен.');
+            }
+
+            $broker = Yii::$app->get('taskEventBroker', false);
+            if (!$broker instanceof TaskEventBroker) {
+                throw new InvalidConfigException('Компонент RabbitMQ не настроен.');
+            }
+
+            return new HealthCheckService($db, $redis, $broker);
         },
         'i18n' => $i18n,
         'log' => [
+            'flushInterval' => 1,
             'traceLevel' => YII_DEBUG ? 3 : 0,
             'targets' => [
                 [
-                    'class' => FileTarget::class,
-                    'levels' => ['error', 'warning', 'info'],
-                    'logFile' => '@runtime/logs/app.log',
+                    'class' => JsonLogTarget::class,
+                    'levels' => ['error'],
+                    'except' => ['yii\\web\\HttpException:4*'],
+                    'requestContext' => $requestContext,
+                    'exportInterval' => 1,
+                    'logVars' => [],
+                ],
+                [
+                    'class' => JsonLogTarget::class,
+                    'levels' => ['warning'],
+                    'categories' => ['app\\*'],
+                    'requestContext' => $requestContext,
+                    'exportInterval' => 1,
+                    'logVars' => [],
+                ],
+                [
+                    'class' => JsonLogTarget::class,
+                    'levels' => ['info'],
+                    'categories' => ['app\\*'],
+                    'requestContext' => $requestContext,
+                    'exportInterval' => 1,
+                    'logVars' => [],
+                ],
+                [
+                    'class' => SentryLogTarget::class,
+                    'enabled' => YII_ENV_PROD && !empty($_ENV['SENTRY_DSN']),
+                    'dsn' => $_ENV['SENTRY_DSN'] ?? '',
+                    'environment' => $_ENV['APP_ENV'] ?? 'prod',
+                    'levels' => ['error'],
+                    'except' => ['yii\\web\\HttpException:4*'],
+                    'requestContext' => $requestContext,
+                    'exportInterval' => 1,
                     'logVars' => [],
                 ],
             ],
         ],
+        'requestContext' => $requestContext,
         'request' => [
             'cookieValidationKey' => $_ENV['APP_COOKIE_VALIDATION_KEY'] ?? '',
             'enableCsrfValidation' => false,
@@ -91,9 +140,16 @@ return [
             ],
         ],
         'redis' => $redis,
+        'taskEventBroker' => $rabbitMq,
         'response' => [
             'format' => Response::FORMAT_JSON,
             'charset' => 'UTF-8',
+            'on beforeSend' => static function () use ($requestContext): void {
+                $requestId = $requestContext->getRequestId();
+                if ($requestId !== null) {
+                    Yii::$app->response->headers->set('X-Request-Id', $requestId);
+                }
+            },
         ],
         'urlManager' => [
             'enablePrettyUrl' => true,

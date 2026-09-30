@@ -29,7 +29,10 @@ final class TaskIdempotencyApiTest extends ApiTestCase
             'title' => 'Исходная задача',
             'authorId' => 1,
         ], $headers);
-        self::assertSame($created, $replayed);
+        self::assertSame($created['status'], $replayed['status']);
+        self::assertSame($created['headers']['location'], $replayed['headers']['location']);
+        self::assertSame($created['body'], $replayed['body']);
+        self::assertNotSame($created['headers']['x-request-id'], $replayed['headers']['x-request-id']);
         self::assertSame(1, (int) $this->db->createCommand('SELECT COUNT(*) FROM tasks')->queryScalar());
         self::assertSame(1, (int) $this->db->createCommand('SELECT COUNT(*) FROM idempotency_keys')->queryScalar());
     }

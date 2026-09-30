@@ -1,7 +1,11 @@
 openapi: 3.0.3
 info:
   title: TaskPulse API
-  version: 0.5.0
+  version: 0.6.0
+  description: |
+    Каждый ответ содержит X-Request-Id для поиска соответствующих логов.
+    Запросы API ограничиваются по IP; при превышении лимита возвращается 429.
+    В production операции записи по умолчанию отключены и возвращают 403.
 servers:
   - url: http://localhost:8080
 paths:
@@ -11,13 +15,17 @@ paths:
       summary: Проверить состояние приложения
       responses:
         '200':
-          description: Приложение и PostgreSQL доступны
+          description: Приложение, PostgreSQL, Redis и RabbitMQ доступны
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
         '503':
           description: Одна из зависимостей недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
   /analytics/tasks:
     get:
       tags: [Analytics]
@@ -41,6 +49,8 @@ paths:
                 $ref: '#/components/schemas/TaskAnalytics'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /users:
     get:
       tags: [Users]
@@ -70,6 +80,8 @@ paths:
                 $ref: '#/components/schemas/UserList'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     post:
       tags: [Users]
       summary: Создать пользователя
@@ -94,6 +106,10 @@ paths:
                 $ref: '#/components/schemas/User'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/WritesDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /users/{id}:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -109,6 +125,8 @@ paths:
                 $ref: '#/components/schemas/User'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     patch:
       tags: [Users]
       summary: Обновить пользователя
@@ -129,6 +147,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/WritesDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     delete:
       tags: [Users]
       summary: Удалить пользователя
@@ -137,6 +159,10 @@ paths:
           description: Пользователь удалён
         '404':
           $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/WritesDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /users/{id}/tasks:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -159,6 +185,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /tasks:
     get:
       tags: [Tasks]
@@ -178,6 +206,8 @@ paths:
           $ref: '#/components/responses/TaskList'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     post:
       tags: [Tasks]
       summary: Создать задачу
@@ -212,6 +242,10 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '409':
           $ref: '#/components/responses/Conflict'
+        '403':
+          $ref: '#/components/responses/WritesDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /tasks/{id}:
     parameters:
       - $ref: '#/components/parameters/TaskId'
@@ -227,6 +261,8 @@ paths:
                 $ref: '#/components/schemas/Task'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     patch:
       tags: [Tasks]
       summary: Обновить задачу
@@ -250,6 +286,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/WritesDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     delete:
       tags: [Tasks]
       summary: Удалить задачу
@@ -259,6 +299,10 @@ paths:
           description: Задача удалена
         '404':
           $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/WritesDisabled'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 components:
   parameters:
     IdempotencyKey:
@@ -346,6 +390,23 @@ components:
         type: string
         default: -createdAt
   responses:
+    WritesDisabled:
+      description: Запись в публичном API отключена
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Превышен лимит запросов с IP-адреса
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            example: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Conflict:
       description: Ключ идемпотентности уже использован для другого запроса
       content:
@@ -421,12 +482,18 @@ components:
           enum: [ok, error]
         services:
           type: object
-          required: [app, postgres]
+          required: [app, postgres, redis, rabbitmq]
           properties:
             app:
               type: string
               enum: [ok]
             postgres:
+              type: string
+              enum: [ok, error]
+            redis:
+              type: string
+              enum: [ok, error]
+            rabbitmq:
               type: string
               enum: [ok, error]
     User:
