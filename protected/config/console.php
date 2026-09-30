@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use app\components\JsonLogTarget;
+use app\components\SentryLogTarget;
 use app\modules\task\repositories\TaskEventRepository;
 use app\services\AnalyticsCache;
 use app\services\OutboxPublisher;
@@ -46,7 +47,14 @@ return [
             'targets' => [
                 [
                     'class' => JsonLogTarget::class,
-                    'levels' => ['error', 'warning'],
+                    'levels' => ['error'],
+                    'exportInterval' => 1,
+                    'logVars' => [],
+                ],
+                [
+                    'class' => JsonLogTarget::class,
+                    'levels' => ['warning'],
+                    'categories' => ['app\\*'],
                     'exportInterval' => 1,
                     'logVars' => [],
                 ],
@@ -54,6 +62,15 @@ return [
                     'class' => JsonLogTarget::class,
                     'levels' => ['info'],
                     'categories' => ['app\\*'],
+                    'exportInterval' => 1,
+                    'logVars' => [],
+                ],
+                [
+                    'class' => SentryLogTarget::class,
+                    'enabled' => YII_ENV_PROD && !empty($_ENV['SENTRY_DSN']),
+                    'dsn' => $_ENV['SENTRY_DSN'] ?? '',
+                    'environment' => $_ENV['APP_ENV'] ?? 'prod',
+                    'levels' => ['error'],
                     'exportInterval' => 1,
                     'logVars' => [],
                 ],

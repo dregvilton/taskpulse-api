@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use app\components\JsonLogTarget;
 use app\components\RequestContext;
+use app\components\SentryLogTarget;
 use app\extensions\DbConnection;
 use app\modules\analytics\Module as AnalyticsModule;
 use app\modules\task\Module as TaskModule;
@@ -95,8 +96,16 @@ return [
             'targets' => [
                 [
                     'class' => JsonLogTarget::class,
-                    'levels' => ['error', 'warning'],
+                    'levels' => ['error'],
                     'except' => ['yii\\web\\HttpException:4*'],
+                    'requestContext' => $requestContext,
+                    'exportInterval' => 1,
+                    'logVars' => [],
+                ],
+                [
+                    'class' => JsonLogTarget::class,
+                    'levels' => ['warning'],
+                    'categories' => ['app\\*'],
                     'requestContext' => $requestContext,
                     'exportInterval' => 1,
                     'logVars' => [],
@@ -105,6 +114,17 @@ return [
                     'class' => JsonLogTarget::class,
                     'levels' => ['info'],
                     'categories' => ['app\\*'],
+                    'requestContext' => $requestContext,
+                    'exportInterval' => 1,
+                    'logVars' => [],
+                ],
+                [
+                    'class' => SentryLogTarget::class,
+                    'enabled' => YII_ENV_PROD && !empty($_ENV['SENTRY_DSN']),
+                    'dsn' => $_ENV['SENTRY_DSN'] ?? '',
+                    'environment' => $_ENV['APP_ENV'] ?? 'prod',
+                    'levels' => ['error'],
+                    'except' => ['yii\\web\\HttpException:4*'],
                     'requestContext' => $requestContext,
                     'exportInterval' => 1,
                     'logVars' => [],

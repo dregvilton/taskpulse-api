@@ -10,9 +10,10 @@
         "ext-mbstring": "*",
         "ext-pdo": "*",
         "php-amqplib/php-amqplib": "^3.7",
+        "sentry/sentry": "^4",
+        "vlucas/phpdotenv": "^5.6",
         "yiisoft/yii2": "^2.0.55",
-        "yiisoft/yii2-redis": "^2.1",
-        "vlucas/phpdotenv": "^5.6"
+        "yiisoft/yii2-redis": "^2.1"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.0",

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace app\components;
 
 use Throwable;
-use yii\db\Exception as DbException;
 use yii\log\Logger;
 use yii\log\Target;
 
@@ -28,9 +27,7 @@ final class JsonLogTarget extends Target
             ];
 
             if ($message instanceof Throwable) {
-                $record['message'] = $message instanceof DbException
-                    ? 'Ошибка базы данных.'
-                    : $message->getMessage();
+                $record['message'] = 'Ошибка приложения.';
                 $record['exception'] = [
                     'type' => $message::class,
                     'code' => $message->getCode(),
@@ -46,9 +43,9 @@ final class JsonLogTarget extends Target
                     ),
                 ];
             } elseif (is_array($message)) {
-                $record['context'] = $message;
+                $record['context'] = DiagnosticData::logContext($message);
             } else {
-                $record['message'] = is_scalar($message) ? (string) $message : get_debug_type($message);
+                $record['message'] = 'Сообщение скрыто для защиты данных.';
             }
 
             $json = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);

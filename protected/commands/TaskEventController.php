@@ -19,9 +19,12 @@ final class TaskEventController extends Controller
 {
     private const int PUBLISH_IDLE_INTERVAL_SECONDS = 1;
     private const int RECONNECT_INTERVAL_SECONDS = 1;
+    private const int FAILURE_LOG_INTERVAL_SECONDS = 300;
 
     private bool $running = true;
     private ?TaskEventBroker $broker = null;
+    private int $lastFailureLogAt = 0;
+    private ?string $lastFailureSignature = null;
 
     /**
      * @param int $limit
@@ -51,13 +54,15 @@ final class TaskEventController extends Controller
         while ($this->running) {
             try {
                 $count = $publisher->publish();
+                $this->lastFailureLogAt = 0;
+                $this->lastFailureSignature = null;
                 if ($count === 0) {
                     sleep(self::PUBLISH_IDLE_INTERVAL_SECONDS);
                 } else {
                     Yii::info(['event' => 'outbox_published', 'count' => $count], __METHOD__);
                 }
             } catch (Throwable $exception) {
-                Yii::error($exception, __METHOD__);
+                $this->logFailure($exception);
                 $this->resetBroker();
                 sleep(self::RECONNECT_INTERVAL_SECONDS);
             }
@@ -84,8 +89,10 @@ final class TaskEventController extends Controller
         while ($this->running) {
             try {
                 $consumer->run();
+                $this->lastFailureLogAt = 0;
+                $this->lastFailureSignature = null;
             } catch (Throwable $exception) {
-                Yii::error($exception, __METHOD__);
+                $this->logFailure($exception);
                 $this->resetBroker();
                 if ($this->running) {
                     sleep(self::RECONNECT_INTERVAL_SECONDS);
@@ -116,6 +123,26 @@ final class TaskEventController extends Controller
             $this->running = false;
             $this->broker?->stop();
         });
+    }
+
+    /**
+     * @param Throwable $exception
+     * @return void
+     */
+    private function logFailure(Throwable $exception): void
+    {
+        $now = time();
+        $signature = $exception::class . ':' . $exception->getFile() . ':' . $exception->getLine();
+        if (
+            $signature === $this->lastFailureSignature
+            && $now - $this->lastFailureLogAt < self::FAILURE_LOG_INTERVAL_SECONDS
+        ) {
+            return;
+        }
+
+        $this->lastFailureLogAt = $now;
+        $this->lastFailureSignature = $signature;
+        Yii::error($exception, __METHOD__);
     }
 
     /**

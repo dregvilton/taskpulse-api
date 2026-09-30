@@ -70,12 +70,15 @@ final class TaskEventConsumer
 
             $this->process($eventId);
             $message->ack();
-            Yii::info(['event' => 'task_event_processed', 'eventId' => $eventId], __METHOD__);
         } catch (Throwable $exception) {
-            Yii::error($exception, __METHOD__);
             $destination = $attempt < self::MAX_RETRIES ? 'retry' : 'dead';
             $this->broker->publish($body, $eventId, $attempt + 1, $destination);
             $message->ack();
+            if ($destination === 'dead') {
+                Yii::error($exception, __METHOD__);
+
+                return;
+            }
             Yii::warning([
                 'event' => 'task_event_requeued',
                 'eventId' => $eventId,
