@@ -6,6 +6,7 @@ namespace app\services;
 
 use app\extensions\DbConnectTrait;
 use app\modules\task\repositories\TaskEventRepository;
+use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Wire\AMQPTable;
 use RuntimeException;
 use Throwable;
@@ -32,16 +33,21 @@ final class TaskEventConsumer
     ) {}
 
     /**
-     * @return bool
+     * @return void
      * @throws Throwable
      */
-    public function consumeOnce(): bool
+    public function run(): void
     {
-        $message = $this->broker->getMessage();
-        if ($message === null) {
-            return false;
-        }
+        $this->broker->consume($this->handleMessage(...));
+    }
 
+    /**
+     * @param AMQPMessage $message
+     * @return void
+     * @throws Throwable
+     */
+    public function handleMessage(AMQPMessage $message): void
+    {
         $body = $message->getBody();
         $eventId = (int) $message->get('message_id');
         $headers = $message->get('application_headers');
@@ -63,15 +69,13 @@ final class TaskEventConsumer
             }
 
             $this->process($eventId);
-            $this->broker->acknowledge($message);
+            $message->ack();
         } catch (Throwable $exception) {
             Yii::error($exception, __METHOD__);
             $destination = $attempt < self::MAX_RETRIES ? 'retry' : 'dead';
             $this->broker->publish($body, $eventId, $attempt + 1, $destination);
-            $this->broker->acknowledge($message);
+            $message->ack();
         }
-
-        return true;
     }
 
     /**

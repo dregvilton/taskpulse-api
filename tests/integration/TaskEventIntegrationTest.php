@@ -9,7 +9,10 @@ use app\services\AnalyticsCache;
 use app\services\OutboxPublisher;
 use app\services\TaskEventBroker;
 use app\services\TaskEventConsumer;
+use app\services\TaskEventTopology;
 use JsonException;
+use PhpAmqpLib\Channel\AMQPChannel;
+use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use tests\api\ApiTestCase;
 use Yii;
@@ -17,6 +20,13 @@ use yii\redis\Connection;
 
 final class TaskEventIntegrationTest extends ApiTestCase
 {
+    private const int MAX_DELIVERIES = 4;
+    private const int RETRY_WAIT_SECONDS = 8;
+    private const int RETRY_POLL_MICROSECONDS = 200000;
+
+    private AMQPStreamConnection $connection;
+    private AMQPChannel $channel;
+
     /**
      * @return void
      */
@@ -24,11 +34,27 @@ final class TaskEventIntegrationTest extends ApiTestCase
     {
         parent::setUp();
         $this->db->createCommand()->insert('users', ['full_name' => 'Иван Петров'])->execute();
-        [, , $broker] = $this->services();
-        $channel = $broker->channel();
-        $channel->queue_purge('task.events.main');
-        $channel->queue_purge('task.events.retry');
-        $channel->queue_purge('task.events.dlq');
+        $this->connection = new AMQPStreamConnection(
+            $_ENV['RABBITMQ_HOST'] ?? 'rabbitmq',
+            (int) ($_ENV['RABBITMQ_PORT'] ?? 5672),
+            $_ENV['RABBITMQ_USER'] ?? 'taskpulse',
+            $_ENV['RABBITMQ_PASSWORD'] ?? 'taskpulse',
+        );
+        $this->channel = $this->connection->channel();
+        (new TaskEventTopology())->declare($this->channel);
+        $this->channel->queue_purge(TaskEventTopology::QUEUE);
+        $this->channel->queue_purge(TaskEventTopology::RETRY_QUEUE);
+        $this->channel->queue_purge(TaskEventTopology::DEAD_QUEUE);
+    }
+
+    /**
+     * @return void
+     */
+    protected function tearDown(): void
+    {
+        $this->channel->close();
+        $this->connection->close();
+        parent::tearDown();
     }
 
     /**
@@ -43,14 +69,19 @@ final class TaskEventIntegrationTest extends ApiTestCase
         [$publisher, $consumer, $broker] = $this->services();
         self::assertSame(1, $publisher->publish());
         self::assertSame(0, $publisher->publish());
-        self::assertTrue($consumer->consumeOnce());
+        $broker->consume(function (AMQPMessage $message) use ($consumer, $broker): void {
+            $consumer->handleMessage($message);
+            $broker->stop();
+        });
         self::assertSame(1, (int) $this->db->createCommand('SELECT COUNT(*) FROM processed_task_events')->queryScalar());
 
         /** @var Connection $redis */
         $redis = Yii::$app->get('redis');
         $before = $redis->executeCommand('GET', ['taskpulse:analytics:tasks:generation']);
         $broker->publish('{"id":1,"type":"created","payload":{"taskId":1}}', 1);
-        self::assertTrue($consumer->consumeOnce());
+        $duplicate = $this->channel->basic_get(TaskEventTopology::QUEUE, false);
+        self::assertInstanceOf(AMQPMessage::class, $duplicate);
+        $consumer->handleMessage($duplicate);
         self::assertSame($before, $redis->executeCommand('GET', ['taskpulse:analytics:tasks:generation']));
         self::assertSame(1, (int) $this->db->createCommand('SELECT COUNT(*) FROM processed_task_events')->queryScalar());
     }
@@ -103,21 +134,22 @@ final class TaskEventIntegrationTest extends ApiTestCase
         [, $consumer, $broker] = $this->services();
         $broker->publish('{broken', 1);
 
-        for ($attempt = 0; $attempt < 4; $attempt++) {
-            $deadline = microtime(true) + 8;
+        for ($attempt = 0; $attempt < self::MAX_DELIVERIES; $attempt++) {
+            $deadline = microtime(true) + self::RETRY_WAIT_SECONDS;
             do {
-                $consumed = $consumer->consumeOnce();
-                if (!$consumed) {
-                    usleep(200000);
+                $message = $this->channel->basic_get(TaskEventTopology::QUEUE, false);
+                if (!$message instanceof AMQPMessage) {
+                    usleep(self::RETRY_POLL_MICROSECONDS);
                 }
-            } while (!$consumed && microtime(true) < $deadline);
-            self::assertTrue($consumed);
+            } while (!$message instanceof AMQPMessage && microtime(true) < $deadline);
+            self::assertInstanceOf(AMQPMessage::class, $message);
+            $consumer->handleMessage($message);
         }
 
-        $deadMessage = $broker->channel()->basic_get('task.events.dlq', false);
+        $deadMessage = $this->channel->basic_get(TaskEventTopology::DEAD_QUEUE, false);
         self::assertInstanceOf(AMQPMessage::class, $deadMessage);
         self::assertSame('{broken', $deadMessage->getBody());
-        $broker->channel()->basic_ack($deadMessage->getDeliveryTag());
+        $deadMessage->ack();
         self::assertSame(0, (int) $this->db->createCommand('SELECT COUNT(*) FROM processed_task_events')->queryScalar());
     }
 
@@ -128,6 +160,7 @@ final class TaskEventIntegrationTest extends ApiTestCase
     {
         $repository = new TaskEventRepository();
         $broker = new TaskEventBroker(
+            new TaskEventTopology(),
             $_ENV['RABBITMQ_HOST'] ?? 'rabbitmq',
             (int) ($_ENV['RABBITMQ_PORT'] ?? 5672),
             $_ENV['RABBITMQ_USER'] ?? 'taskpulse',

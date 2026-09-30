@@ -26,6 +26,7 @@ services:
       - .:/app
     command: php yii task-event/run-publisher
     restart: unless-stopped
+    stop_signal: SIGTERM
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,6 +41,7 @@ services:
       - .:/app
     command: php yii task-event/consume
     restart: unless-stopped
+    stop_signal: SIGTERM
     depends_on:
       postgres:
         condition: service_healthy

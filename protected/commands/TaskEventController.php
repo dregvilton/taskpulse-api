@@ -17,13 +17,17 @@ use yii\console\ExitCode;
  */
 final class TaskEventController extends Controller
 {
+    private const int PUBLISH_IDLE_INTERVAL_SECONDS = 1;
+    private const int RECONNECT_INTERVAL_SECONDS = 1;
+
     private bool $running = true;
+    private ?TaskEventBroker $broker = null;
 
     /**
      * @param int $limit
      * @return int
      */
-    public function actionPublish(int $limit = 100): int
+    public function actionPublish(int $limit = OutboxPublisher::DEFAULT_BATCH_SIZE): int
     {
         /** @var OutboxPublisher $publisher */
         $publisher = Yii::$app->get('outboxPublisher');
@@ -44,12 +48,14 @@ final class TaskEventController extends Controller
 
         while ($this->running) {
             try {
-                $publisher->publish();
+                if ($publisher->publish() === 0) {
+                    sleep(self::PUBLISH_IDLE_INTERVAL_SECONDS);
+                }
             } catch (Throwable $exception) {
                 Yii::error($exception, __METHOD__);
                 $this->resetBroker();
+                sleep(self::RECONNECT_INTERVAL_SECONDS);
             }
-            sleep(1);
         }
 
         return ExitCode::OK;
@@ -60,19 +66,22 @@ final class TaskEventController extends Controller
      */
     public function actionConsume(): int
     {
+        /** @var TaskEventBroker $broker */
+        $broker = Yii::$app->get('taskEventBroker');
+        $this->broker = $broker;
         $this->listenForStop();
         /** @var TaskEventConsumer $consumer */
         $consumer = Yii::$app->get('taskEventConsumer');
 
         while ($this->running) {
             try {
-                if (!$consumer->consumeOnce()) {
-                    usleep(200000);
-                }
+                $consumer->run();
             } catch (Throwable $exception) {
                 Yii::error($exception, __METHOD__);
                 $this->resetBroker();
-                sleep(1);
+                if ($this->running) {
+                    sleep(self::RECONNECT_INTERVAL_SECONDS);
+                }
             }
         }
 
@@ -91,9 +100,11 @@ final class TaskEventController extends Controller
         pcntl_async_signals(true);
         pcntl_signal(SIGTERM, function (): void {
             $this->running = false;
+            $this->broker?->stop();
         });
         pcntl_signal(SIGINT, function (): void {
             $this->running = false;
+            $this->broker?->stop();
         });
     }
 

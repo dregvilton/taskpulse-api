@@ -15,6 +15,8 @@ final class OutboxPublisher
 {
     use DbConnectTrait;
 
+    public const int DEFAULT_BATCH_SIZE = 100;
+
     /**
      * @param TaskEventRepository $repository
      * @param TaskEventBroker $broker
@@ -29,7 +31,7 @@ final class OutboxPublisher
      * @return int
      * @throws Throwable
      */
-    public function publish(int $limit = 100): int
+    public function publish(int $limit = self::DEFAULT_BATCH_SIZE): int
     {
         $transaction = $this->getDbConnection()->beginTransaction();
 
