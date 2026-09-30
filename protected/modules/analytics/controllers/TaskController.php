@@ -8,10 +8,7 @@ use app\controllers\BaseController;
 use app\modules\analytics\forms\AnalyticsFilterForm;
 use app\modules\analytics\Module;
 use app\modules\analytics\services\AnalyticsService;
-use Throwable;
-use Yii;
 use yii\base\InvalidConfigException;
-use yii\web\ServerErrorHttpException;
 
 /**
  * Аналитика задач.
@@ -52,7 +49,6 @@ final class TaskController extends BaseController
      * Получить аналитику задач.
      *
      * @return array<string, int|float|null>|AnalyticsFilterForm
-     * @throws ServerErrorHttpException
      */
     public function actionIndex(): array|AnalyticsFilterForm
     {
@@ -63,15 +59,6 @@ final class TaskController extends BaseController
             return $form;
         }
 
-        try {
-            return $this->analyticsService->getTasks($form);
-        } catch (Throwable $exception) {
-            Yii::error($exception, __METHOD__);
-
-            throw new ServerErrorHttpException(
-                message: Yii::t('analytics', 'Failed to get task analytics.'),
-                previous: $exception,
-            );
-        }
+        return $this->analyticsService->getTasks($form);
     }
 }

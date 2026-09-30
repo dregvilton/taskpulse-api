@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace app\controllers;
 
+use Yii;
+use yii\base\Action;
 use yii\rest\Controller;
+use yii\web\ForbiddenHttpException;
 
 /**
  * Базовый класс для API-контроллеров.
@@ -34,6 +37,29 @@ abstract class BaseController extends Controller
         unset($behaviors['rateLimiter']);
 
         return $behaviors;
+    }
+
+    /**
+     * @param Action $action
+     * @return bool
+     * @throws ForbiddenHttpException
+     */
+    public function beforeAction($action): bool
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        $publicWritesEnabled = filter_var($_ENV['APP_PUBLIC_WRITES'] ?? false, FILTER_VALIDATE_BOOL);
+        if (
+            YII_ENV_PROD
+            && !$publicWritesEnabled
+            && !in_array(Yii::$app->request->getMethod(), ['GET', 'HEAD', 'OPTIONS'], true)
+        ) {
+            throw new ForbiddenHttpException('Запись в публичном API отключена.');
+        }
+
+        return true;
     }
 
     /**

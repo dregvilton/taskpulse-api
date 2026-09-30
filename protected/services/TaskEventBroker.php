@@ -8,6 +8,7 @@ use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Wire\AMQPTable;
+use Throwable;
 
 /**
  * Передача событий задач через RabbitMQ.
@@ -16,6 +17,7 @@ final class TaskEventBroker
 {
     private const float CONFIRM_TIMEOUT_SECONDS = 5.0;
     private const float CONSUME_MAXIMUM_POLL_SECONDS = 1.0;
+    private const float HEALTH_TIMEOUT_SECONDS = 1.0;
     private const int PREFETCH_COUNT = 1;
 
     private ?AMQPStreamConnection $connection = null;
@@ -112,6 +114,25 @@ final class TaskEventBroker
     public function stop(): void
     {
         $this->channel?->stopConsume();
+    }
+
+    /**
+     * Проверить соединение с RabbitMQ без объявления очередей.
+     *
+     * @return void
+     * @throws Throwable
+     */
+    public function checkConnection(): void
+    {
+        $connection = new AMQPStreamConnection(
+            $this->host,
+            $this->port,
+            $this->user,
+            $this->password,
+            connection_timeout: self::HEALTH_TIMEOUT_SECONDS,
+            read_write_timeout: self::HEALTH_TIMEOUT_SECONDS,
+        );
+        $connection->close();
     }
 
     /**

@@ -32,6 +32,7 @@ final class TaskEventController extends Controller
         /** @var OutboxPublisher $publisher */
         $publisher = Yii::$app->get('outboxPublisher');
         $count = $publisher->publish($limit);
+        Yii::info(['event' => 'outbox_published', 'count' => $count], __METHOD__);
         $this->stdout("Опубликовано событий: {$count}\n");
 
         return ExitCode::OK;
@@ -45,11 +46,15 @@ final class TaskEventController extends Controller
         $this->listenForStop();
         /** @var OutboxPublisher $publisher */
         $publisher = Yii::$app->get('outboxPublisher');
+        Yii::info(['event' => 'publisher_started'], __METHOD__);
 
         while ($this->running) {
             try {
-                if ($publisher->publish() === 0) {
+                $count = $publisher->publish();
+                if ($count === 0) {
                     sleep(self::PUBLISH_IDLE_INTERVAL_SECONDS);
+                } else {
+                    Yii::info(['event' => 'outbox_published', 'count' => $count], __METHOD__);
                 }
             } catch (Throwable $exception) {
                 Yii::error($exception, __METHOD__);
@@ -57,6 +62,8 @@ final class TaskEventController extends Controller
                 sleep(self::RECONNECT_INTERVAL_SECONDS);
             }
         }
+
+        Yii::info(['event' => 'publisher_stopped'], __METHOD__);
 
         return ExitCode::OK;
     }
@@ -72,6 +79,7 @@ final class TaskEventController extends Controller
         $this->listenForStop();
         /** @var TaskEventConsumer $consumer */
         $consumer = Yii::$app->get('taskEventConsumer');
+        Yii::info(['event' => 'worker_started'], __METHOD__);
 
         while ($this->running) {
             try {
@@ -84,6 +92,8 @@ final class TaskEventController extends Controller
                 }
             }
         }
+
+        Yii::info(['event' => 'worker_stopped'], __METHOD__);
 
         return ExitCode::OK;
     }

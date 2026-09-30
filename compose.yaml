@@ -8,6 +8,8 @@ services:
       dockerfile: docker/php/Dockerfile
     env_file:
       - .env
+    environment:
+      APP_COMPONENT: api
     volumes:
       - .:/app
     depends_on:
@@ -22,6 +24,8 @@ services:
     image: taskpulse-app:latest
     env_file:
       - .env
+    environment:
+      APP_COMPONENT: publisher
     volumes:
       - .:/app
     command: php yii task-event/run-publisher
@@ -37,6 +41,8 @@ services:
     image: taskpulse-app:latest
     env_file:
       - .env
+    environment:
+      APP_COMPONENT: worker
     volumes:
       - .:/app
     command: php yii task-event/consume
