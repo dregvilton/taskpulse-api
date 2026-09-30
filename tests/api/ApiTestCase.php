@@ -22,7 +22,9 @@ abstract class ApiTestCase extends TestCase
         $db = Yii::$app->get('db');
         $this->db = $db;
 
-        $this->db->createCommand('TRUNCATE TABLE idempotency_keys, tasks, users RESTART IDENTITY CASCADE')->execute();
+        $this->db->createCommand(
+            'TRUNCATE TABLE processed_task_events, task_events, idempotency_keys, tasks, users RESTART IDENTITY CASCADE',
+        )->execute();
     }
 
     /**

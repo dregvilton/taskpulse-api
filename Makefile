@@ -28,7 +28,10 @@ migrate:
 	$(COMPOSE) exec app php yii migrate --interactive=0
 
 test:
-	$(COMPOSE) exec app composer test
+	APP_PORT=18080 $(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml up -d --no-build app nginx postgres redis rabbitmq
+	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml stop publisher worker
+	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app php yii migrate --interactive=0
+	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app composer test
 
 stan:
 	$(COMPOSE) exec app composer stan

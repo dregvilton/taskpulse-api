@@ -9,6 +9,7 @@
         "ext-json": "*",
         "ext-mbstring": "*",
         "ext-pdo": "*",
+        "php-amqplib/php-amqplib": "^3.7",
         "yiisoft/yii2": "^2.0.55",
         "yiisoft/yii2-redis": "^2.1",
         "vlucas/phpdotenv": "^5.6"

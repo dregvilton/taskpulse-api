@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use app\modules\task\repositories\TaskEventRepository;
 use app\services\AnalyticsCache;
+use app\services\OutboxPublisher;
+use app\services\TaskEventBroker;
+use app\services\TaskEventConsumer;
+use app\services\TaskEventTopology;
 use yii\base\InvalidConfigException;
 use yii\caching\FileCache;
 use yii\log\FileTarget;
@@ -47,6 +52,29 @@ return [
             ],
         ],
         'redis' => $redis,
+        'taskEventBroker' => static function (): TaskEventBroker {
+            return new TaskEventBroker(
+                new TaskEventTopology(),
+                $_ENV['RABBITMQ_HOST'] ?? 'rabbitmq',
+                (int) ($_ENV['RABBITMQ_PORT'] ?? 5672),
+                $_ENV['RABBITMQ_USER'] ?? 'taskpulse',
+                $_ENV['RABBITMQ_PASSWORD'] ?? 'taskpulse',
+            );
+        },
+        'outboxPublisher' => static function (): OutboxPublisher {
+            /** @var TaskEventBroker $broker */
+            $broker = Yii::$app->get('taskEventBroker');
+
+            return new OutboxPublisher(new TaskEventRepository(), $broker);
+        },
+        'taskEventConsumer' => static function (): TaskEventConsumer {
+            /** @var TaskEventBroker $broker */
+            $broker = Yii::$app->get('taskEventBroker');
+            /** @var AnalyticsCache $analyticsCache */
+            $analyticsCache = Yii::$app->get('analyticsCache');
+
+            return new TaskEventConsumer(new TaskEventRepository(), $broker, $analyticsCache);
+        },
     ],
     'controllerMap' => [
         'migrate' => [

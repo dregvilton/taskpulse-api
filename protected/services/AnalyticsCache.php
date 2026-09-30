@@ -81,6 +81,17 @@ final readonly class AnalyticsCache
     }
 
     /**
+     * Сбросить кеш с передачей ошибки вызывающему коду.
+     *
+     * @return void
+     * @throws Throwable
+     */
+    public function invalidateOrFail(): void
+    {
+        $this->redis->executeCommand('INCR', [self::GENERATION_KEY]);
+    }
+
+    /**
      * Создать ключ для набора фильтров.
      *
      * @param AnalyticsFilterForm $form
