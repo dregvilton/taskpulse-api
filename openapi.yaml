@@ -1,16 +1,21 @@
 openapi: 3.0.3
 info:
   title: TaskPulse API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     Каждый ответ содержит X-Request-Id для поиска соответствующих логов.
     Запросы API ограничиваются по IP; при превышении лимита возвращается 429.
     В production операции записи по умолчанию отключены и возвращают 403.
+    Пользователи являются учётными записями. Защищённые маршруты принимают Bearer-токен.
+    Токен действует один час и отзывается при выходе.
 servers:
   - url: http://localhost:8080
+security:
+  - bearerAuth: []
 paths:
   /health:
     get:
+      security: []
       tags: [Health]
       summary: Проверить состояние приложения
       responses:
@@ -26,6 +31,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+  /auth/login:
+    post:
+      security: []
+      tags: [Auth]
+      summary: Войти в API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          description: Токен доступа на один час
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Отозвать текущий токен
+      responses:
+        '204':
+          description: Токен отозван
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /analytics/tasks:
     get:
       tags: [Analytics]
@@ -36,6 +76,7 @@ paths:
         по завершённым задачам; если их нет, возвращается null. Результат кешируется
         в Redis на 300 секунд и инвалидируется после изменения задачи через API.
         Событие задачи также доставляется через RabbitMQ для повторной инвалидации.
+        Доступна только аналитика текущего пользователя; чужой authorId возвращает 403.
       parameters:
         - $ref: '#/components/parameters/AuthorId'
         - $ref: '#/components/parameters/CreatedFrom'
@@ -49,12 +90,16 @@ paths:
                 $ref: '#/components/schemas/TaskAnalytics'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
   /users:
     get:
       tags: [Users]
-      summary: Получить список пользователей
+      summary: Получить список из текущего пользователя
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PerPage'
@@ -80,11 +125,14 @@ paths:
                 $ref: '#/components/schemas/UserList'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/RateLimited'
     post:
+      security: []
       tags: [Users]
-      summary: Создать пользователя
+      summary: Зарегистрировать пользователя
       requestBody:
         required: true
         content:
@@ -115,7 +163,7 @@ paths:
       - $ref: '#/components/parameters/UserId'
     get:
       tags: [Users]
-      summary: Получить пользователя
+      summary: Получить свой профиль
       responses:
         '200':
           description: Пользователь
@@ -125,11 +173,15 @@ paths:
                 $ref: '#/components/schemas/User'
         '404':
           $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
     patch:
       tags: [Users]
-      summary: Обновить пользователя
+      summary: Обновить свой профиль
       requestBody:
         required: true
         content:
@@ -145,22 +197,26 @@ paths:
                 $ref: '#/components/schemas/User'
         '404':
           $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationError'
         '403':
-          $ref: '#/components/responses/WritesDisabled'
+          $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
     delete:
       tags: [Users]
-      summary: Удалить пользователя
+      summary: Удалить свой профиль и отозвать его токены
       responses:
         '204':
           description: Пользователь удалён
         '404':
           $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/WritesDisabled'
+          $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
   /users/{id}/tasks:
@@ -168,7 +224,7 @@ paths:
       - $ref: '#/components/parameters/UserId'
     get:
       tags: [Tasks]
-      summary: Получить задачи пользователя
+      summary: Получить свои задачи
       parameters:
         - $ref: '#/components/parameters/Completed'
         - $ref: '#/components/parameters/CreatedFrom'
@@ -183,6 +239,10 @@ paths:
           $ref: '#/components/responses/TaskList'
         '404':
           $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationError'
         '429':
@@ -190,7 +250,7 @@ paths:
   /tasks:
     get:
       tags: [Tasks]
-      summary: Получить список задач
+      summary: Получить список своих задач
       parameters:
         - $ref: '#/components/parameters/AuthorId'
         - $ref: '#/components/parameters/Completed'
@@ -206,6 +266,10 @@ paths:
           $ref: '#/components/responses/TaskList'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/RateLimited'
     post:
@@ -217,6 +281,8 @@ paths:
         позже была изменена. Тот же ключ с другим телом запроса возвращает 409.
         Ключи хранятся в PostgreSQL без срока действия; Redis для идемпотентности
         не используется. Изменение задачи и outbox-событие сохраняются в одной транзакции.
+        Ключи изолированы по пользователю. Автором всегда становится текущий пользователь;
+        переданный authorId игнорируется.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -240,6 +306,8 @@ paths:
                 $ref: '#/components/schemas/Task'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '409':
           $ref: '#/components/responses/Conflict'
         '403':
@@ -251,7 +319,7 @@ paths:
       - $ref: '#/components/parameters/TaskId'
     get:
       tags: [Tasks]
-      summary: Получить задачу
+      summary: Получить свою задачу
       responses:
         '200':
           description: Задача
@@ -261,14 +329,17 @@ paths:
                 $ref: '#/components/schemas/Task'
         '404':
           $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/RateLimited'
     patch:
       tags: [Tasks]
-      summary: Обновить задачу
+      summary: Обновить свою задачу
       description: |
         При изменении completed поле completedAt устанавливается или очищается автоматически.
         Изменение и outbox-событие сохраняются в одной транзакции.
+        Автор задачи не изменяется.
       requestBody:
         required: true
         content:
@@ -284,6 +355,8 @@ paths:
                 $ref: '#/components/schemas/Task'
         '404':
           $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationError'
         '403':
@@ -292,18 +365,25 @@ paths:
           $ref: '#/components/responses/RateLimited'
     delete:
       tags: [Tasks]
-      summary: Удалить задачу
+      summary: Удалить свою задачу
       description: Мягкое удаление и outbox-событие сохраняются в одной транзакции.
       responses:
         '204':
           description: Задача удалена
         '404':
           $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/WritesDisabled'
         '429':
           $ref: '#/components/responses/RateLimited'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -349,6 +429,7 @@ components:
     AuthorId:
       name: authorId
       in: query
+      description: Если указан, должен совпадать с ID текущего пользователя; иначе 403.
       schema:
         type: integer
         format: int64
@@ -390,6 +471,18 @@ components:
         type: string
         default: -createdAt
   responses:
+    Unauthorized:
+      description: Токен отсутствует, недействителен или истёк
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Нет доступа к ресурсу или запись в публичном API отключена
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     WritesDisabled:
       description: Запись в публичном API отключена
       content:
@@ -453,6 +546,31 @@ components:
           schema:
             $ref: '#/components/schemas/TaskList'
   schemas:
+    Login:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    LoginResponse:
+      type: object
+      required: [tokenType, accessToken, expiresAt, userId]
+      properties:
+        tokenType:
+          type: string
+          enum: [Bearer]
+        accessToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        userId:
+          type: integer
+          format: int64
     TaskAnalytics:
       type: object
       required: [totalCreated, totalCompleted, completionPercent, avgCompletionTimeSeconds]
@@ -498,7 +616,7 @@ components:
               enum: [ok, error]
     User:
       type: object
-      required: [id, fullName, phone, createdAt, updatedAt]
+      required: [id, fullName, phone, email, createdAt, updatedAt]
       properties:
         id:
           type: integer
@@ -513,6 +631,10 @@ components:
           minLength: 10
           maxLength: 15
           pattern: '^\+\d{9,14}$'
+        email:
+          type: string
+          format: email
+          nullable: true
         createdAt:
           type: string
           example: '2026-08-28 12:00:00'
@@ -521,7 +643,7 @@ components:
           example: '2026-08-28 12:00:00'
     CreateUser:
       type: object
-      required: [fullName]
+      required: [fullName, email, password]
       properties:
         fullName:
           type: string
@@ -533,6 +655,14 @@ components:
           minLength: 10
           maxLength: 15
           pattern: '^\+\d{9,14}$'
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 255
     UpdateUser:
       type: object
       minProperties: 1
@@ -579,12 +709,8 @@ components:
           example: '2026-09-03 13:00:00'
     CreateTask:
       type: object
-      required: [authorId, title]
+      required: [title]
       properties:
-        authorId:
-          type: integer
-          format: int64
-          minimum: 1
         title:
           type: string
           minLength: 3
@@ -600,10 +726,6 @@ components:
       type: object
       minProperties: 1
       properties:
-        authorId:
-          type: integer
-          format: int64
-          minimum: 1
         title:
           type: string
           minLength: 3

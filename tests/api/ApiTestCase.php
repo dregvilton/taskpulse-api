@@ -15,6 +15,7 @@ use yii\db\Connection;
 abstract class ApiTestCase extends TestCase
 {
     protected Connection $db;
+    protected ?string $accessToken = null;
 
     protected function setUp(): void
     {
@@ -23,8 +24,71 @@ abstract class ApiTestCase extends TestCase
         $this->db = $db;
 
         $this->db->createCommand(
-            'TRUNCATE TABLE processed_task_events, task_events, idempotency_keys, tasks, users RESTART IDENTITY CASCADE',
+            'TRUNCATE TABLE auth_tokens, processed_task_events, task_events, idempotency_keys, tasks, users RESTART IDENTITY CASCADE',
         )->execute();
+        $this->accessToken = null;
+    }
+
+    /**
+     * Выдать тестовому пользователю учётные данные и войти через API.
+     *
+     * @param int $userId
+     * @return string
+     * @throws JsonException
+     */
+    protected function authenticateAs(int $userId): string
+    {
+        $email = "user{$userId}@example.test";
+        $password = bin2hex(random_bytes(16));
+        $this->db->createCommand()->update('users', [
+            'email' => $email,
+            'password_hash' => Yii::$app->security->generatePasswordHash($password),
+        ], ['id' => $userId])->execute();
+
+        $this->accessToken = null;
+        $response = $this->request('POST', '/auth/login', [
+            'email' => $email,
+            'password' => $password,
+        ]);
+        self::assertSame(200, $response['status']);
+        self::assertIsString($response['body']['accessToken']);
+        $this->accessToken = $response['body']['accessToken'];
+
+        return $this->accessToken;
+    }
+
+    /**
+     * Зарегистрировать пользователя и войти через API.
+     *
+     * @param string $fullName
+     * @param string|null $phone
+     * @return array{status: int, headers: array<string, string>, body: array<int|string, mixed>}
+     * @throws JsonException
+     */
+    protected function registerUser(string $fullName, ?string $phone = null): array
+    {
+        $email = bin2hex(random_bytes(8)) . '@example.test';
+        $password = bin2hex(random_bytes(16));
+        $created = $this->request('POST', '/users', [
+            'fullName' => $fullName,
+            'phone' => $phone,
+            'email' => $email,
+            'password' => $password,
+        ]);
+        if ($created['status'] !== 201) {
+            return $created;
+        }
+
+        $this->accessToken = null;
+        $login = $this->request('POST', '/auth/login', [
+            'email' => $email,
+            'password' => $password,
+        ]);
+        self::assertSame(200, $login['status']);
+        self::assertIsString($login['body']['accessToken']);
+        $this->accessToken = $login['body']['accessToken'];
+
+        return $created;
     }
 
     /**
@@ -44,6 +108,9 @@ abstract class ApiTestCase extends TestCase
     protected function request(string $method, string $path, ?array $body = null, array $extraHeaders = []): array
     {
         $headers = ['Accept: application/json'];
+        if ($this->accessToken !== null && !array_key_exists('Authorization', $extraHeaders)) {
+            $headers[] = 'Authorization: Bearer ' . $this->accessToken;
+        }
         foreach ($extraHeaders as $name => $value) {
             $headers[] = "{$name}: {$value}";
         }

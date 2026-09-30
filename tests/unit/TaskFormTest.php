@@ -33,6 +33,7 @@ final class TaskFormTest extends TestCase
             'description' => 'Собрать данные за неделю',
             'completed' => false,
         ], '');
+        $form->authorId = $this->authorId;
 
         self::assertTrue($form->validate());
         self::assertSame('Подготовить отчёт', $form->title);
@@ -55,6 +56,7 @@ final class TaskFormTest extends TestCase
             'authorId' => 999,
             'title' => 'Подготовить отчёт',
         ], '');
+        $form->authorId = 999;
 
         self::assertFalse($form->validate());
         self::assertSame('Автор не найден.', $form->getFirstError('authorId'));
@@ -68,6 +70,7 @@ final class TaskFormTest extends TestCase
             'title' => 'Подготовить отчёт',
             'completed' => 1,
         ], '');
+        $form->authorId = $this->authorId;
 
         self::assertFalse($form->validate());
         self::assertSame(
@@ -93,5 +96,15 @@ final class TaskFormTest extends TestCase
 
         self::assertFalse($form->validate());
         self::assertSame('Не переданы данные для обновления.', $form->getFirstError('title'));
+    }
+
+    public function testAuthorCannotBeChangedThroughUpdateForm(): void
+    {
+        $form = new TaskForm(['scenario' => TaskForm::SCENARIO_UPDATE]);
+        $form->load(['authorId' => 999], '');
+
+        self::assertFalse($form->validate());
+        self::assertFalse($form->hasField('authorId'));
+        self::assertArrayNotHasKey('author_id', $form->getTaskAttributes());
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\modules\user\forms;
 
+use app\models\User;
 use Yii;
 use yii\base\Model;
 
@@ -19,6 +20,10 @@ final class UserForm extends Model
     public mixed $fullName = null;
     /** @var mixed Телефон. */
     public mixed $phone = null;
+    /** @var mixed Почта для входа. */
+    public mixed $email = null;
+    /** @var mixed Пароль для входа. */
+    public mixed $password = null;
     /** @var list<string> */
     private array $providedFields = [];
 
@@ -44,6 +49,28 @@ final class UserForm extends Model
     public function rules(): array
     {
         return [
+            ['email', 'trim', 'skipOnArray' => true, 'on' => self::SCENARIO_CREATE],
+            ['email', 'filter', 'filter' => 'mb_strtolower', 'skipOnArray' => true, 'on' => self::SCENARIO_CREATE],
+            ['email', 'required', 'message' => Yii::t('user', 'Email is required.'), 'on' => self::SCENARIO_CREATE],
+            ['email', 'email', 'message' => Yii::t('user', 'Email is invalid.'), 'on' => self::SCENARIO_CREATE],
+            [
+                'email',
+                'unique',
+                'targetClass' => User::class,
+                'filter' => ['deleted_at' => null],
+                'message' => Yii::t('user', 'Email is already taken.'),
+                'on' => self::SCENARIO_CREATE,
+            ],
+            ['password', 'required', 'message' => Yii::t('user', 'Password is required.'), 'on' => self::SCENARIO_CREATE],
+            [
+                'password',
+                'string',
+                'min' => 12,
+                'max' => 255,
+                'tooShort' => Yii::t('user', 'Password must contain at least 12 characters.'),
+                'tooLong' => Yii::t('user', 'Password must contain at most 255 characters.'),
+                'on' => self::SCENARIO_CREATE,
+            ],
             [
                 'fullName',
                 'string',
@@ -116,7 +143,7 @@ final class UserForm extends Model
     {
         $fields = $this->scenario === self::SCENARIO_UPDATE
             ? $this->providedFields
-            : ['fullName', 'phone'];
+            : ['fullName', 'phone', 'email'];
         $attributes = $this->getAttributes($fields);
 
         if (array_key_exists('fullName', $attributes)) {

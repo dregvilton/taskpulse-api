@@ -15,6 +15,7 @@ use Yii;
 use yii\base\InvalidConfigException;
 use yii\data\ActiveDataProvider;
 use yii\helpers\Url;
+use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 
 /**
@@ -57,6 +58,14 @@ final class UserController extends BaseController
     }
 
     /**
+     * @return list<string>
+     */
+    protected function publicActions(): array
+    {
+        return ['create'];
+    }
+
+    /**
      * Получить список пользователей.
      *
      * @return ActiveDataProvider|UserSearchForm
@@ -70,7 +79,7 @@ final class UserController extends BaseController
             return $form;
         }
 
-        return $this->userService->getList();
+        return $this->userService->getList($this->currentUserId());
     }
 
     /**
@@ -82,6 +91,7 @@ final class UserController extends BaseController
      */
     public function actionView(int $id): User
     {
+        $this->assertOwnUser($id);
         try {
             return $this->userService->getById($id);
         } catch (UserNotFoundException $exception) {
@@ -125,6 +135,7 @@ final class UserController extends BaseController
      */
     public function actionUpdate(int $id): User|UserForm
     {
+        $this->assertOwnUser($id);
         $form = new UserForm(['scenario' => UserForm::SCENARIO_UPDATE]);
         $form->load($this->request->getBodyParams(), '');
 
@@ -151,6 +162,7 @@ final class UserController extends BaseController
      */
     public function actionDelete(int $id): void
     {
+        $this->assertOwnUser($id);
         try {
             $this->userService->delete($id);
             $this->response->setStatusCode(self::NO_CONTENT);
@@ -159,6 +171,18 @@ final class UserController extends BaseController
                 message: Yii::t('user', 'User not found.'),
                 previous: $exception,
             );
+        }
+    }
+
+    /**
+     * @param int $id
+     * @return void
+     * @throws ForbiddenHttpException
+     */
+    private function assertOwnUser(int $id): void
+    {
+        if ($id !== $this->currentUserId()) {
+            throw new ForbiddenHttpException('Нет доступа к этому пользователю.');
         }
     }
 }

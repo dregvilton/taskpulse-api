@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace app\controllers;
 
+use app\components\BearerAuth;
 use Yii;
 use yii\base\Action;
 use yii\rest\Controller;
 use yii\web\ForbiddenHttpException;
+use yii\web\UnauthorizedHttpException;
 
 /**
  * Базовый класс для API-контроллеров.
@@ -35,6 +37,10 @@ abstract class BaseController extends Controller
     {
         $behaviors = parent::behaviors();
         unset($behaviors['rateLimiter']);
+        $behaviors['authenticator'] = [
+            'class' => BearerAuth::class,
+            'optional' => $this->publicActions(),
+        ];
 
         return $behaviors;
     }
@@ -54,6 +60,7 @@ abstract class BaseController extends Controller
         if (
             YII_ENV_PROD
             && !$publicWritesEnabled
+            && !in_array($action->uniqueId, ['auth/login', 'auth/logout'], true)
             && !in_array(Yii::$app->request->getMethod(), ['GET', 'HEAD', 'OPTIONS'], true)
         ) {
             throw new ForbiddenHttpException('Запись в публичном API отключена.');
@@ -68,5 +75,27 @@ abstract class BaseController extends Controller
     protected function verbs(): array
     {
         return [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function publicActions(): array
+    {
+        return [];
+    }
+
+    /**
+     * @return int
+     * @throws UnauthorizedHttpException
+     */
+    protected function currentUserId(): int
+    {
+        $id = Yii::$app->user->id;
+        if ($id === null) {
+            throw new UnauthorizedHttpException('Необходима авторизация.');
+        }
+
+        return (int) $id;
     }
 }

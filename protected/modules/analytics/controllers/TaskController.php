@@ -9,6 +9,7 @@ use app\modules\analytics\forms\AnalyticsFilterForm;
 use app\modules\analytics\Module;
 use app\modules\analytics\services\AnalyticsService;
 use yii\base\InvalidConfigException;
+use yii\web\ForbiddenHttpException;
 
 /**
  * Аналитика задач.
@@ -58,6 +59,12 @@ final class TaskController extends BaseController
         if (!$form->validate()) {
             return $form;
         }
+
+        $ownerId = $this->currentUserId();
+        if ($form->authorId !== null && (int) $form->authorId !== $ownerId) {
+            throw new ForbiddenHttpException('Нет доступа к аналитике этого пользователя.');
+        }
+        $form->authorId = $ownerId;
 
         return $this->analyticsService->getTasks($form);
     }

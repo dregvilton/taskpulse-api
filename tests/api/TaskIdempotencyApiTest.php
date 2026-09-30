@@ -12,7 +12,7 @@ final class TaskIdempotencyApiTest extends ApiTestCase
     /**
      * @throws JsonException|Exception
      */
-    public function testReplayReturnsOriginalResponseAfterTaskAndAuthorChange(): void
+    public function testReplayReturnsOriginalResponseAfterTaskChange(): void
     {
         $this->createUser();
         $body = ['authorId' => 1, 'title' => 'Исходная задача'];
@@ -23,7 +23,7 @@ final class TaskIdempotencyApiTest extends ApiTestCase
         self::assertSame('/tasks/1', $created['headers']['location']);
 
         $this->request('PATCH', '/tasks/1', ['title' => 'Изменённая задача']);
-        $this->request('DELETE', '/users/1');
+        $this->request('DELETE', '/tasks/1');
 
         $replayed = $this->request('POST', '/tasks', [
             'title' => 'Исходная задача',
@@ -143,11 +143,12 @@ final class TaskIdempotencyApiTest extends ApiTestCase
 
     /**
      * @return void
-     * @throws Exception
+     * @throws Exception|JsonException
      */
     private function createUser(): void
     {
         $this->db->createCommand()->insert('users', ['full_name' => 'Иван Петров'])->execute();
+        $this->authenticateAs(1);
     }
 
     /**
@@ -168,9 +169,11 @@ final class TaskIdempotencyApiTest extends ApiTestCase
         stream_set_timeout($socket, 10);
 
         $body = json_encode(['authorId' => 1, 'title' => 'Параллельная задача'], JSON_THROW_ON_ERROR);
+        self::assertNotNull($this->accessToken);
         $request = "POST /tasks HTTP/1.0\r\n"
             . "Host: {$host}\r\n"
             . "Accept: application/json\r\n"
+            . 'Authorization: Bearer ' . $this->accessToken . "\r\n"
             . "Content-Type: application/json\r\n"
             . "Idempotency-Key: {$key}\r\n"
             . 'Content-Length: ' . strlen($body) . "\r\n"

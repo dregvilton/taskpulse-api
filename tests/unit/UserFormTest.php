@@ -15,6 +15,8 @@ final class UserFormTest extends TestCase
         $form->load([
             'fullName' => 'Иван Петров',
             'phone' => '+79991234567',
+            'email' => 'ivan@example.test',
+            'password' => bin2hex(random_bytes(16)),
         ], '');
 
         self::assertTrue($form->validate());

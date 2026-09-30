@@ -8,6 +8,7 @@ use app\models\User;
 use app\modules\user\exceptions\UserNotFoundException;
 use app\modules\user\exceptions\UserSaveException;
 use app\modules\user\forms\UserForm;
+use Yii;
 use yii\data\ActiveDataProvider;
 use yii\db\Expression;
 
@@ -27,6 +28,7 @@ final class UserService
     {
         $user = new User();
         $user->setAttributes($form->getUserAttributes(), false);
+        $user->setAttribute('password_hash', Yii::$app->security->generatePasswordHash((string) $form->password));
 
         $this->save($user);
         $user->refresh();
@@ -57,13 +59,14 @@ final class UserService
     /**
      * Получить список пользователей.
      *
+     * @param int $currentUserId
      * @return ActiveDataProvider
      */
-    public function getList(): ActiveDataProvider
+    public function getList(int $currentUserId): ActiveDataProvider
     {
         return new ActiveDataProvider([
             'query' => User::find()
-                ->where(['deleted_at' => null])
+                ->where(['id' => $currentUserId, 'deleted_at' => null])
                 ->orderBy(['id' => SORT_ASC]),
             'pagination' => [
                 'defaultPageSize' => 20,
@@ -108,6 +111,7 @@ final class UserService
         $user->setAttribute('deleted_at', new Expression('CURRENT_TIMESTAMP'));
 
         $this->save($user);
+        Yii::$app->db->createCommand()->delete('{{%auth_tokens}}', ['user_id' => $id])->execute();
     }
 
     /**

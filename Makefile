@@ -42,7 +42,9 @@ cs:
 cs-fix:
 	$(COMPOSE) exec app composer cs-fix
 
-check: test stan cs
+check: test
+	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app composer stan
+	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app composer cs
 
 logs:
 	$(COMPOSE) logs -f --tail=100
