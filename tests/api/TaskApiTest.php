@@ -137,8 +137,7 @@ final class TaskApiTest extends ApiTestCase
         self::assertSame(1, $response['body']['items'][1]['authorId']);
 
         $missing = $this->request('GET', '/users/999/tasks');
-        self::assertSame(404, $missing['status']);
-        self::assertSame('Пользователь не найден.', $missing['body']['message']);
+        self::assertSame(403, $missing['status']);
     }
 
     /**
@@ -148,13 +147,12 @@ final class TaskApiTest extends ApiTestCase
     {
         $this->createUsers();
 
-        $invalidAuthor = $this->request('POST', '/tasks', [
+        $ignoredAuthor = $this->request('POST', '/tasks', [
             'authorId' => 999,
             'title' => 'Новая задача',
         ]);
-        self::assertSame(422, $invalidAuthor['status']);
-        self::assertSame('authorId', $invalidAuthor['body'][0]['field']);
-        self::assertSame('Автор не найден.', $invalidAuthor['body'][0]['message']);
+        self::assertSame(201, $ignoredAuthor['status']);
+        self::assertSame(1, $ignoredAuthor['body']['authorId']);
 
         $created = $this->createTask(1, 'Новая задача');
         self::assertSame(201, $created['status']);
@@ -177,6 +175,7 @@ final class TaskApiTest extends ApiTestCase
                 ['Анна Смирнова'],
             ],
         )->execute();
+        $this->authenticateAs(1);
     }
 
     /**
@@ -189,11 +188,16 @@ final class TaskApiTest extends ApiTestCase
      */
     private function createTask(int $authorId, string $title, bool $completed = false): array
     {
+        $previousToken = $this->accessToken;
+        if ($authorId !== 1) {
+            $this->authenticateAs($authorId);
+        }
         $response = $this->request('POST', '/tasks', [
             'authorId' => $authorId,
             'title' => $title,
             'completed' => $completed,
         ]);
+        $this->accessToken = $previousToken;
 
         self::assertSame(201, $response['status']);
 

@@ -34,6 +34,7 @@ final class TaskEventIntegrationTest extends ApiTestCase
     {
         parent::setUp();
         $this->db->createCommand()->insert('users', ['full_name' => 'Иван Петров'])->execute();
+        $this->authenticateAs(1);
         $this->connection = new AMQPStreamConnection(
             $_ENV['RABBITMQ_HOST'] ?? 'rabbitmq',
             (int) ($_ENV['RABBITMQ_PORT'] ?? 5672),

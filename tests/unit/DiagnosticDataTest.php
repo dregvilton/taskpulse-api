@@ -18,14 +18,16 @@ final class DiagnosticDataTest extends TestCase
             'authorId' => 42,
             'completed' => true,
             'password' => 'credential-marker',
+            'email' => 'mail-marker@example.test',
         ]);
 
         self::assertSame(true, $body['completed']);
         self::assertSame(['type' => 'int', 'length' => null], $body['authorId']);
-        self::assertSame(1, $body['unknownFieldCount']);
+        self::assertSame(2, $body['unknownFieldCount']);
         self::assertStringNotContainsString('Секретное имя', json_encode($body, JSON_UNESCAPED_UNICODE));
         self::assertStringNotContainsString('Пароль 12345', json_encode($body, JSON_UNESCAPED_UNICODE));
         self::assertStringNotContainsString('credential-marker', json_encode($body, JSON_UNESCAPED_UNICODE));
+        self::assertStringNotContainsString('mail-marker', json_encode($body, JSON_UNESCAPED_UNICODE));
     }
 
     public function testRequestDoesNotIncludeQueryOrRawBody(): void

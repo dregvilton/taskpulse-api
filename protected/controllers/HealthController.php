@@ -12,6 +12,17 @@ use yii\web\ServerErrorHttpException;
 final class HealthController extends BaseController
 {
     /**
+     * @return array<string, mixed>
+     */
+    public function behaviors(): array
+    {
+        $behaviors = parent::behaviors();
+        unset($behaviors['authenticator']);
+
+        return $behaviors;
+    }
+
+    /**
      * @return array<string, list<string>>
      */
     protected function verbs(): array

@@ -23,13 +23,14 @@ final class TaskRepository
      * Получить задачу.
      *
      * @param int $id
+     * @param int $ownerId
      * @return Task|null
      * @throws Exception
      */
-    public function getById(int $id): ?Task
+    public function getById(int $id, int $ownerId): ?Task
     {
         return Task::find()
-            ->where(['id' => $id, 'deleted_at' => null])
+            ->where(['id' => $id, 'author_id' => $ownerId, 'deleted_at' => null])
             ->one();
     }
 
@@ -37,14 +38,16 @@ final class TaskRepository
      * Получить и заблокировать задачу до завершения транзакции.
      *
      * @param int $id
+     * @param int $ownerId
      * @return Task|null
      * @throws InvalidConfigException|Exception|RuntimeException
      */
-    public function getByIdForUpdate(int $id): ?Task
+    public function getByIdForUpdate(int $id, int $ownerId): ?Task
     {
         $row = $this->getDbConnection()
             ->createCommand(__DIR__ . '/sqls/get_task_for_update.sql')
             ->bindValue(':id', $id)
+            ->bindValue(':ownerId', $ownerId)
             ->queryOne();
 
         if ($row === false) {

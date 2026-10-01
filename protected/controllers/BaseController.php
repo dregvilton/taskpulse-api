@@ -6,8 +6,10 @@ namespace app\controllers;
 
 use Yii;
 use yii\base\Action;
+use yii\filters\auth\HttpBearerAuth;
 use yii\rest\Controller;
 use yii\web\ForbiddenHttpException;
+use yii\web\UnauthorizedHttpException;
 
 /**
  * Базовый класс для API-контроллеров.
@@ -28,6 +30,9 @@ abstract class BaseController extends Controller
     protected const int INTERNAL_SERVER_ERROR = 500;
     protected const int SERVICE_UNAVAILABLE = 503;
 
+    /** @var list<string> */
+    protected array $publicActions = [];
+
     /**
      * @return array<string, mixed>
      */
@@ -35,6 +40,10 @@ abstract class BaseController extends Controller
     {
         $behaviors = parent::behaviors();
         unset($behaviors['rateLimiter']);
+        $behaviors['authenticator'] = [
+            'class' => HttpBearerAuth::class,
+            'optional' => $this->publicActions,
+        ];
 
         return $behaviors;
     }
@@ -46,14 +55,19 @@ abstract class BaseController extends Controller
      */
     public function beforeAction($action): bool
     {
-        if (!parent::beforeAction($action)) {
-            return false;
+        try {
+            if (!parent::beforeAction($action)) {
+                return false;
+            }
+        } catch (UnauthorizedHttpException $exception) {
+            throw new UnauthorizedHttpException('Необходима авторизация.', previous: $exception);
         }
 
         $publicWritesEnabled = filter_var($_ENV['APP_PUBLIC_WRITES'] ?? false, FILTER_VALIDATE_BOOL);
         if (
             YII_ENV_PROD
             && !$publicWritesEnabled
+            && !in_array($action->uniqueId, ['auth/login', 'auth/logout'], true)
             && !in_array(Yii::$app->request->getMethod(), ['GET', 'HEAD', 'OPTIONS'], true)
         ) {
             throw new ForbiddenHttpException('Запись в публичном API отключена.');
@@ -68,5 +82,19 @@ abstract class BaseController extends Controller
     protected function verbs(): array
     {
         return [];
+    }
+
+    /**
+     * @return int
+     * @throws UnauthorizedHttpException
+     */
+    protected function currentUserId(): int
+    {
+        $id = Yii::$app->user->id;
+        if ($id === null) {
+            throw new UnauthorizedHttpException('Необходима авторизация.');
+        }
+
+        return (int) $id;
     }
 }

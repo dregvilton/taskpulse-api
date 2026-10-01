@@ -18,6 +18,7 @@ use yii\base\InvalidConfigException;
 use yii\data\SqlDataProvider;
 use yii\helpers\Url;
 use yii\web\ConflictHttpException;
+use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 
 /**
@@ -72,7 +73,12 @@ final class TaskController extends BaseController
             return $form;
         }
 
-        return $this->taskService->getList($form);
+        $ownerId = $this->currentUserId();
+        if ($form->authorId !== null && (int) $form->authorId !== $ownerId) {
+            throw new ForbiddenHttpException('Нет доступа к задачам этого пользователя.');
+        }
+
+        return $this->taskService->getList($form, $ownerId);
     }
 
     /**
@@ -84,6 +90,10 @@ final class TaskController extends BaseController
      */
     public function actionUser(int $id): SqlDataProvider|TaskSearchForm
     {
+        if ($id !== $this->currentUserId()) {
+            throw new ForbiddenHttpException('Нет доступа к задачам этого пользователя.');
+        }
+
         $form = $this->getSearchForm();
         if (!$form->validate()) {
             return $form;
@@ -109,7 +119,7 @@ final class TaskController extends BaseController
     public function actionView(int $id): Task
     {
         try {
-            return $this->taskService->getById($id);
+            return $this->taskService->getById($id, $this->currentUserId());
         } catch (TaskNotFoundException $exception) {
             throw new NotFoundHttpException(
                 message: Yii::t('task', 'Task not found.'),
@@ -129,6 +139,8 @@ final class TaskController extends BaseController
         $body = $this->request->getBodyParams();
         $form = new TaskForm(['scenario' => TaskForm::SCENARIO_CREATE]);
         $form->load($body, '');
+        $ownerId = $this->currentUserId();
+        $form->authorId = $ownerId;
         $form->idempotencyKey = $this->request->headers->get('Idempotency-Key');
 
         if (!$form->validate(['idempotencyKey'])) {
@@ -138,7 +150,7 @@ final class TaskController extends BaseController
         try {
             $key = $form->idempotencyKey;
             $requestHash = $key === null ? null : $this->taskService->getCreationFingerprint($body);
-            $result = $key === null ? null : $this->taskService->findCreation($key, $requestHash);
+            $result = $key === null ? null : $this->taskService->findCreation($ownerId, $key, $requestHash);
 
             if ($result === null) {
                 if (!$form->validate()) {
@@ -147,7 +159,7 @@ final class TaskController extends BaseController
 
                 $result = $key === null
                     ? $this->taskService->create($form)
-                    : $this->taskService->createIdempotent($form, $key, $requestHash);
+                    : $this->taskService->createIdempotent($form, $ownerId, $key, $requestHash);
             }
 
             $taskId = is_array($result) ? $result['taskId'] : $result->id;
@@ -183,7 +195,7 @@ final class TaskController extends BaseController
         }
 
         try {
-            return $this->taskService->update($id, $form);
+            return $this->taskService->update($id, $form, $this->currentUserId());
         } catch (TaskNotFoundException $exception) {
             throw new NotFoundHttpException(
                 message: Yii::t('task', 'Task not found.'),
@@ -202,7 +214,7 @@ final class TaskController extends BaseController
     public function actionDelete(int $id): void
     {
         try {
-            $this->taskService->delete($id);
+            $this->taskService->delete($id, $this->currentUserId());
             $this->response->setStatusCode(self::NO_CONTENT);
         } catch (TaskNotFoundException $exception) {
             throw new NotFoundHttpException(

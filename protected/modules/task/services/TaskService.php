@@ -97,6 +97,7 @@ final class TaskService
     /**
      * Найти ответ на уже обработанный запрос.
      *
+     * @param int $ownerId
      * @param string $key
      * @param string $requestHash
      * @return array{
@@ -106,9 +107,9 @@ final class TaskService
      * @throws IdempotencyConflictException|JsonException|RuntimeException
      * @throws InvalidConfigException|Exception
      */
-    public function findCreation(string $key, string $requestHash): ?array
+    public function findCreation(int $ownerId, string $key, string $requestHash): ?array
     {
-        $row = $this->idempotencyRepository->getByKey($key);
+        $row = $this->idempotencyRepository->getByKey($ownerId, $key);
 
         return $row === false ? null : $this->restoreCreation($row, $requestHash);
     }
@@ -117,6 +118,7 @@ final class TaskService
      * Атомарно сохранить задачу и ответ для ключа идемпотентности.
      *
      * @param TaskForm $form
+     * @param int $ownerId
      * @param string $key
      * @param string $requestHash
      * @return array{
@@ -125,13 +127,13 @@ final class TaskService
      * }
      * @throws Throwable
      */
-    public function createIdempotent(TaskForm $form, string $key, string $requestHash): array
+    public function createIdempotent(TaskForm $form, int $ownerId, string $key, string $requestHash): array
     {
         $transaction = $this->getDbConnection()->beginTransaction();
 
         try {
-            if ($this->idempotencyRepository->claim($key, $requestHash) === false) {
-                $result = $this->findCreation($key, $requestHash);
+            if ($this->idempotencyRepository->claim($ownerId, $key, $requestHash) === false) {
+                $result = $this->findCreation($ownerId, $key, $requestHash);
                 if ($result === null) {
                     throw new RuntimeException('Не удалось получить сохранённый ответ задачи.');
                 }
@@ -145,7 +147,7 @@ final class TaskService
             $this->eventRepository->append($task, 'created');
             $body = $task->toArray();
             $encodedBody = json_encode($body, JSON_THROW_ON_ERROR);
-            if ($this->idempotencyRepository->complete($key, (int) $task->id, $encodedBody) !== 1) {
+            if ($this->idempotencyRepository->complete($ownerId, $key, (int) $task->id, $encodedBody) !== 1) {
                 throw new RuntimeException('Не удалось сохранить ответ задачи.');
             }
 
@@ -219,23 +221,25 @@ final class TaskService
      * Получить задачу.
      *
      * @param int $id
+     * @param int $ownerId
      * @return Task
      * @throws TaskNotFoundException
      */
-    public function getById(int $id): Task
+    public function getById(int $id, int $ownerId): Task
     {
-        return $this->getExistingTask($id);
+        return $this->getExistingTask($id, $ownerId);
     }
 
     /**
      * Получить список задач.
      *
      * @param TaskSearchForm $form
+     * @param int $ownerId
      * @return SqlDataProvider
      */
-    public function getList(TaskSearchForm $form): SqlDataProvider
+    public function getList(TaskSearchForm $form, int $ownerId): SqlDataProvider
     {
-        return $this->repository->getList($form);
+        return $this->repository->getList($form, $ownerId);
     }
 
     /**
@@ -260,19 +264,20 @@ final class TaskService
      *
      * @param int $id
      * @param TaskForm $form
+     * @param int $ownerId
      * @return Task
      * @throws TaskNotFoundException
      * @throws TaskSaveException
      * @throws Throwable
      */
-    public function update(int $id, TaskForm $form): Task
+    public function update(int $id, TaskForm $form, int $ownerId): Task
     {
         if ($form->hasField('completed')) {
-            return $this->updateState($id, $form);
+            return $this->updateState($id, $form, $ownerId);
         }
 
-        $task = $this->persistWithEvent(function () use ($id, $form): Task {
-            $task = $this->getExistingTask($id);
+        $task = $this->persistWithEvent(function () use ($id, $form, $ownerId): Task {
+            $task = $this->getExistingTask($id, $ownerId);
             $task->setAttributes($form->getTaskAttributes(), false);
             $this->save($task);
 
@@ -288,14 +293,15 @@ final class TaskService
      * Удалить задачу.
      *
      * @param int $id
+     * @param int $ownerId
      * @return void
      * @throws TaskNotFoundException
      * @throws TaskSaveException
      */
-    public function delete(int $id): void
+    public function delete(int $id, int $ownerId): void
     {
-        $this->persistWithEvent(function () use ($id): Task {
-            $task = $this->getExistingTask($id);
+        $this->persistWithEvent(function () use ($id, $ownerId): Task {
+            $task = $this->getExistingTask($id, $ownerId);
             $task->setAttribute('deleted_at', new Expression('CURRENT_TIMESTAMP'));
             $this->save($task);
 
@@ -309,15 +315,16 @@ final class TaskService
      *
      * @param int $id
      * @param TaskForm $form
+     * @param int $ownerId
      * @return Task
      * @throws Throwable
      */
-    private function updateState(int $id, TaskForm $form): Task
+    private function updateState(int $id, TaskForm $form, int $ownerId): Task
     {
         $transaction = $this->getDbConnection()->beginTransaction();
 
         try {
-            $task = $this->repository->getByIdForUpdate($id);
+            $task = $this->repository->getByIdForUpdate($id, $ownerId);
             if (!$task instanceof Task) {
                 throw new TaskNotFoundException("Задача {$id} не найдена.");
             }
@@ -378,12 +385,13 @@ final class TaskService
      * Получить существующую задачу.
      *
      * @param int $id
+     * @param int $ownerId
      * @return Task
      * @throws TaskNotFoundException
      */
-    private function getExistingTask(int $id): Task
+    private function getExistingTask(int $id, int $ownerId): Task
     {
-        $task = $this->repository->getById($id);
+        $task = $this->repository->getById($id, $ownerId);
         if (!$task instanceof Task) {
             throw new TaskNotFoundException("Задача {$id} не найдена.");
         }

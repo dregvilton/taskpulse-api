@@ -25,6 +25,7 @@ final class AnalyticsApiTest extends ApiTestCase
      */
     public function testMetricsAndFilters(): void
     {
+        $this->createUsers();
         $empty = $this->request('GET', '/analytics/tasks');
         self::assertSame(200, $empty['status']);
         self::assertSame([
@@ -34,7 +35,6 @@ final class AnalyticsApiTest extends ApiTestCase
             'avgCompletionTimeSeconds' => null,
         ], $empty['body']);
 
-        $this->createUsers();
         $this->createTask(1, 'Первая задача', true);
         $this->createTask(1, 'Вторая задача', true);
         $this->createTask(1, 'Третья задача', false);
@@ -48,10 +48,10 @@ final class AnalyticsApiTest extends ApiTestCase
         $all = $this->request('GET', '/analytics/tasks');
         self::assertSame(200, $all['status']);
         self::assertSame([
-            'totalCreated' => 4,
-            'totalCompleted' => 3,
-            'completionPercent' => 75,
-            'avgCompletionTimeSeconds' => 4200,
+            'totalCreated' => 3,
+            'totalCompleted' => 2,
+            'completionPercent' => 66.67,
+            'avgCompletionTimeSeconds' => 5400,
         ], $all['body']);
 
         $filtered = $this->request(
@@ -111,6 +111,7 @@ final class AnalyticsApiTest extends ApiTestCase
      */
     public function testInvalidFilters(): void
     {
+        $this->createUsers();
         $invalid = $this->request('GET', '/analytics/tasks?authorId=wrong&createdFrom=not-a-date');
         self::assertSame(422, $invalid['status']);
         self::assertSame('authorId', $invalid['body'][0]['field']);
@@ -126,6 +127,7 @@ final class AnalyticsApiTest extends ApiTestCase
                 ['Анна Смирнова'],
             ],
         )->execute();
+        $this->authenticateAs(1);
     }
 
     /**
@@ -133,11 +135,16 @@ final class AnalyticsApiTest extends ApiTestCase
      */
     private function createTask(int $authorId, string $title, bool $completed): void
     {
+        $previousToken = $this->accessToken;
+        if ($authorId !== 1) {
+            $this->authenticateAs($authorId);
+        }
         $response = $this->request('POST', '/tasks', [
             'authorId' => $authorId,
             'title' => $title,
             'completed' => $completed,
         ]);
+        $this->accessToken = $previousToken;
 
         self::assertSame(201, $response['status']);
     }

@@ -6,10 +6,12 @@ use app\components\JsonLogTarget;
 use app\components\RequestContext;
 use app\components\SentryLogTarget;
 use app\extensions\DbConnection;
+use app\models\User;
 use app\modules\analytics\Module as AnalyticsModule;
 use app\modules\task\Module as TaskModule;
 use app\modules\user\Module as UserModule;
 use app\services\AnalyticsCache;
+use app\services\AuthService;
 use app\services\HealthCheck\HealthCheckService;
 use app\services\TaskEventBroker;
 use yii\base\InvalidConfigException;
@@ -67,6 +69,7 @@ return [
 
             return new AnalyticsCache($redis);
         },
+        'authService' => static fn(): AuthService => new AuthService(),
         'cache' => [
             'class' => FileCache::class,
         ],
@@ -132,6 +135,12 @@ return [
             ],
         ],
         'requestContext' => $requestContext,
+        'user' => [
+            'identityClass' => User::class,
+            'enableSession' => false,
+            'enableAutoLogin' => false,
+            'loginUrl' => null,
+        ],
         'request' => [
             'cookieValidationKey' => $_ENV['APP_COOKIE_VALIDATION_KEY'] ?? '',
             'enableCsrfValidation' => false,
@@ -157,6 +166,8 @@ return [
             'showScriptName' => false,
             'rules' => [
                 'health' => 'health/index',
+                'POST auth/login' => 'auth/login',
+                'POST auth/logout' => 'auth/logout',
                 'GET analytics/tasks' => 'analytics/task/index',
                 'GET users/<id:\d+>/tasks' => 'task/task/user',
                 [

@@ -38,7 +38,7 @@ final class TaskForm extends Model
     public function load($data, $formName = null): bool
     {
         $this->providedFields = array_values(
-            array_intersect(['authorId', 'title', 'description', 'completed'], array_keys($data)),
+            array_intersect(['title', 'description', 'completed'], array_keys($data)),
         );
 
         return parent::load($data, $formName);
@@ -77,13 +77,6 @@ final class TaskForm extends Model
                 'required',
                 'message' => Yii::t('task', 'Author is required.'),
                 'on' => self::SCENARIO_CREATE,
-            ],
-            [
-                'authorId',
-                'required',
-                'message' => Yii::t('task', 'Author is required.'),
-                'when' => fn(self $form): bool => $form->hasField('authorId'),
-                'on' => self::SCENARIO_UPDATE,
             ],
             [
                 'authorId',
