@@ -7,8 +7,8 @@ namespace app\services;
 use app\extensions\DbConnectTrait;
 use app\forms\LoginForm;
 use app\models\User;
-use Random\RandomException;
 use Yii;
+use yii\base\Exception as SecurityException;
 use yii\base\InvalidConfigException;
 use yii\db\Exception;
 
@@ -24,7 +24,7 @@ final class AuthService
     /**
      * @param LoginForm $form
      * @return array{tokenType: string, accessToken: string, expiresAt: string, userId: int}|null
-     * @throws InvalidConfigException|Exception|RandomException
+     * @throws InvalidConfigException|Exception|SecurityException
      */
     public function login(LoginForm $form): ?array
     {
@@ -39,7 +39,7 @@ final class AuthService
             return null;
         }
 
-        $token = bin2hex(random_bytes(32));
+        $token = Yii::$app->security->generateRandomString(64);
         $expiresAt = time() + self::TOKEN_TTL_SECONDS;
         $this->getDbConnection()->createCommand()->insert('{{%auth_tokens}}', [
             'token_hash' => hash('sha256', $token),
@@ -56,14 +56,14 @@ final class AuthService
     }
 
     /**
-     * @param string $token
+     * @param string $tokenHash
      * @return void
      * @throws InvalidConfigException|Exception
      */
-    public function logout(string $token): void
+    public function logout(string $tokenHash): void
     {
         $this->getDbConnection()->createCommand()->delete('{{%auth_tokens}}', [
-            'token_hash' => hash('sha256', $token),
+            'token_hash' => $tokenHash,
         ])->execute();
     }
 }

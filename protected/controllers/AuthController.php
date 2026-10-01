@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\controllers;
 
 use app\forms\LoginForm;
+use app\models\User;
 use app\services\AuthService;
 use Yii;
 use yii\base\InvalidConfigException;
@@ -16,6 +17,9 @@ use yii\web\UnauthorizedHttpException;
  */
 final class AuthController extends BaseController
 {
+    /** @var list<string> */
+    protected array $publicActions = ['login'];
+
     private readonly AuthService $authService;
 
     /**
@@ -32,14 +36,6 @@ final class AuthController extends BaseController
         $this->authService = $authService;
 
         parent::__construct($id, $module, $config);
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function publicActions(): array
-    {
-        return ['login'];
     }
 
     /**
@@ -75,9 +71,13 @@ final class AuthController extends BaseController
      */
     public function actionLogout(): void
     {
-        $authorization = $this->request->headers->get('Authorization', '');
-        preg_match('/^Bearer\s+(.+)$/', $authorization, $matches);
-        $this->authService->logout($matches[1] ?? '');
+        $identity = Yii::$app->user->identity;
+        $tokenHash = $identity instanceof User ? $identity->getCurrentTokenHash() : null;
+        if ($tokenHash === null) {
+            throw new UnauthorizedHttpException('Необходима авторизация.');
+        }
+
+        $this->authService->logout($tokenHash);
         $this->response->setStatusCode(self::NO_CONTENT);
     }
 }

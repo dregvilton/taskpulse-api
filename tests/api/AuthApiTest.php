@@ -50,12 +50,24 @@ final class AuthApiTest extends ApiTestCase
             $this->db->createCommand('SELECT token_hash FROM auth_tokens')->queryScalar(),
         );
 
+        $secondLogin = $this->request('POST', '/auth/login', [
+            'email' => $email,
+            'password' => $password,
+        ]);
+        self::assertSame(200, $secondLogin['status']);
+        $secondToken = $secondLogin['body']['accessToken'];
+        self::assertIsString($secondToken);
+        self::assertNotSame($token, $secondToken);
+
         $this->accessToken = $token;
         self::assertSame(200, $this->request('GET', '/users/1')['status']);
         self::assertSame(204, $this->request('POST', '/auth/logout', null, [
             'Authorization' => "Bearer   {$token}",
         ])['status']);
         self::assertSame(401, $this->request('GET', '/users/1')['status']);
+
+        $this->accessToken = $secondToken;
+        self::assertSame(200, $this->request('GET', '/users/1')['status']);
     }
 
     /**

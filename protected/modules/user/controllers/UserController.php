@@ -23,6 +23,9 @@ use yii\web\NotFoundHttpException;
  */
 final class UserController extends BaseController
 {
+    /** @var list<string> */
+    protected array $publicActions = ['create'];
+
     /** @var UserService Сервис пользователей. */
     private readonly UserService $userService;
 
@@ -55,14 +58,6 @@ final class UserController extends BaseController
             'update' => ['PATCH'],
             'delete' => ['DELETE'],
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function publicActions(): array
-    {
-        return ['create'];
     }
 
     /**

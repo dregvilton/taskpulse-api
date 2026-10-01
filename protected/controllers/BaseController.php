@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace app\controllers;
 
-use app\components\BearerAuth;
 use Yii;
 use yii\base\Action;
+use yii\filters\auth\HttpBearerAuth;
 use yii\rest\Controller;
 use yii\web\ForbiddenHttpException;
 use yii\web\UnauthorizedHttpException;
@@ -30,6 +30,9 @@ abstract class BaseController extends Controller
     protected const int INTERNAL_SERVER_ERROR = 500;
     protected const int SERVICE_UNAVAILABLE = 503;
 
+    /** @var list<string> */
+    protected array $publicActions = [];
+
     /**
      * @return array<string, mixed>
      */
@@ -38,8 +41,8 @@ abstract class BaseController extends Controller
         $behaviors = parent::behaviors();
         unset($behaviors['rateLimiter']);
         $behaviors['authenticator'] = [
-            'class' => BearerAuth::class,
-            'optional' => $this->publicActions(),
+            'class' => HttpBearerAuth::class,
+            'optional' => $this->publicActions,
         ];
 
         return $behaviors;
@@ -52,8 +55,12 @@ abstract class BaseController extends Controller
      */
     public function beforeAction($action): bool
     {
-        if (!parent::beforeAction($action)) {
-            return false;
+        try {
+            if (!parent::beforeAction($action)) {
+                return false;
+            }
+        } catch (UnauthorizedHttpException $exception) {
+            throw new UnauthorizedHttpException('Необходима авторизация.', previous: $exception);
         }
 
         $publicWritesEnabled = filter_var($_ENV['APP_PUBLIC_WRITES'] ?? false, FILTER_VALIDATE_BOOL);
@@ -73,14 +80,6 @@ abstract class BaseController extends Controller
      * @return array<string, list<string>>
      */
     protected function verbs(): array
-    {
-        return [];
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function publicActions(): array
     {
         return [];
     }

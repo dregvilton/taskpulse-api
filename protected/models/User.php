@@ -23,6 +23,8 @@ use yii\web\IdentityInterface;
  */
 final class User extends ActiveRecord implements IdentityInterface
 {
+    private ?string $currentTokenHash = null;
+
     /**
      * @param int|string $id
      * @return self|null
@@ -39,16 +41,31 @@ final class User extends ActiveRecord implements IdentityInterface
      */
     public static function findIdentityByAccessToken($token, $type = null): ?self
     {
-        if (!is_string($token) || !preg_match('/^[a-f0-9]{64}$/D', $token)) {
+        if (!is_string($token) || !preg_match('/^[A-Za-z0-9_-]{64}$/D', $token)) {
             return null;
         }
 
-        return self::find()
+        $tokenHash = hash('sha256', $token);
+        $user = self::find()
             ->alias('users')
             ->innerJoin('{{%auth_tokens}} tokens', 'tokens.user_id = users.id')
-            ->where(['tokens.token_hash' => hash('sha256', $token), 'users.deleted_at' => null])
+            ->where(['tokens.token_hash' => $tokenHash, 'users.deleted_at' => null])
             ->andWhere("tokens.expires_at > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')")
             ->one();
+
+        if ($user instanceof self) {
+            $user->currentTokenHash = $tokenHash;
+        }
+
+        return $user;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getCurrentTokenHash(): ?string
+    {
+        return $this->currentTokenHash;
     }
 
     /**
