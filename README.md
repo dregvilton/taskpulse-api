@@ -1,6 +1,6 @@
-# TaskPulse API
+# TaskPulse
 
-TaskPulse is a production-style task management and analytics REST API built as a compact backend portfolio project.
+TaskPulse — приложение для задач и аналитики с REST API на Yii2 и интерфейсом на Vue 3.
 
 ## Stack
 
@@ -9,6 +9,7 @@ TaskPulse is a production-style task management and analytics REST API built as 
 - Redis 7
 - RabbitMQ 4
 - Nginx and PHP-FPM
+- Vue 3, Vue Router, Vite и Vitest
 - Docker Compose
 - PHPUnit, PHPStan, and PHP CS Fixer
 
@@ -23,7 +24,29 @@ cp .env.example .env
 make init
 ```
 
-The API is then available at <http://localhost:8080>.
+Интерфейс доступен по адресу <http://localhost:8080/app/>. Запрос к
+<http://localhost:8080/> перенаправляет туда; API остаётся на прежних маршрутах.
+
+## Vue-интерфейс
+
+В браузере можно зарегистрироваться (в локальной среде), войти, открыть свои
+задачи, создать и изменить их, отметить завершение, применить фильтры по статусу
+и дате, сортировку и пагинацию. Раздел «Профиль» показывает только текущего
+пользователя — таковы правила доступа API. Раздел «Аналитика» показывает сводку
+и позволяет выбрать период. Ошибки 401 переводят на экран входа; ошибки 403,
+валидации и сети отображаются на соответствующем экране.
+
+UI собирается в Docker-образ Nginx и работает с API на том же домене, без CORS.
+Секретов в клиенте нет. `VITE_API_BASE_URL` задаёт только публичный адрес API
+на этапе сборки; по умолчанию он пустой, и используется тот же домен. При
+изменении переменной образ нужно пересобрать. Пример —
+[`frontend/.env.example`](frontend/.env.example). Не помещайте пароли, DSN или
+токены в переменные `VITE_*`: Vite включает их в сборку.
+
+Для разработки с горячим обновлением: запустите API через `make up`, затем
+`cd frontend && npm ci && npm run dev`. Vite откроется на
+<http://localhost:5173/> и перенаправит API-запросы к `localhost:8080`.
+Для проверки интерфейса через Docker: `make frontend-check`.
 
 Проверка приложения и зависимостей:
 
@@ -65,12 +88,14 @@ POST /auth/logout  → 204, текущий токен отозван
 `Authorization: Bearer <accessToken>`. Токен действует один час, в PostgreSQL
 хранится только SHA-256-хеш. Истёкший, отозванный или принадлежащий удалённому
 пользователю токен даёт `401`. Используйте HTTPS за пределами локального Docker.
-Будущий Vue-интерфейс может держать токен в памяти и повторно предлагать вход после
-перезагрузки страницы; хранить его в `localStorage` не требуется.
+Vue-интерфейс держит токен только в памяти и после перезагрузки страницы снова
+предлагает вход. В `localStorage` и `sessionStorage` токен не записывается.
 
 В production при `APP_PUBLIC_WRITES=false` регистрация и изменение данных
-отключены; вход и выход остаются доступны. Для публичного демо потребуется
-заранее подготовленная отдельная учётная запись и сброс её тестовых данных.
+отключены и в браузерном интерфейсе; вход и выход остаются доступны. Для
+публичного интерактивного демо потребуется отдельная учётная запись,
+изолированные несекретные данные и автоматический сброс. До этого открывать
+запись в публичном API нельзя.
 
 ## Users API
 
@@ -202,6 +227,7 @@ make stan               # run static analysis
 make cs                 # check code style
 make check              # run every code check
 make logs               # follow container logs
+make frontend-check     # Docker-сборка и UI-тесты Vue
 ```
 
 ## Iteration workflow
