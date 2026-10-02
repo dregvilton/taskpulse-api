@@ -140,6 +140,7 @@ final class TaskForm extends Model
                 'trueValue' => true,
                 'falseValue' => false,
                 'strict' => true,
+                'skipOnEmpty' => false,
                 'message' => Yii::t('task', 'Completed must be a boolean.'),
             ],
         ];

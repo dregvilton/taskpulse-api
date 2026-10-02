@@ -8,6 +8,7 @@ use Yii;
 use yii\base\Action;
 use yii\filters\auth\HttpBearerAuth;
 use yii\rest\Controller;
+use yii\web\BadRequestHttpException;
 use yii\web\ForbiddenHttpException;
 use yii\web\UnauthorizedHttpException;
 
@@ -96,5 +97,25 @@ abstract class BaseController extends Controller
         }
 
         return (int) $id;
+    }
+
+    /**
+     * @return array<string, mixed>
+     * @throws BadRequestHttpException
+     */
+    protected function getBodyObject(): array
+    {
+        $body = $this->request->getBodyParams();
+        $contentType = $this->request->getContentType();
+        $isJson = str_starts_with(strtolower($contentType), 'application/json');
+        if (
+            !is_array($body)
+            || ($isJson && !str_starts_with(ltrim($this->request->getRawBody()), '{'))
+            || (!$isJson && $body !== [] && array_is_list($body))
+        ) {
+            throw new BadRequestHttpException('Тело запроса должно быть JSON-объектом.');
+        }
+
+        return $body;
     }
 }

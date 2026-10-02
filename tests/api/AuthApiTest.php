@@ -112,6 +112,9 @@ final class AuthApiTest extends ApiTestCase
             'password' => 'irrelevant',
         ]);
         self::assertSame(422, $login['status']);
+
+        $scalar = $this->request('POST', '/auth/login', '42');
+        self::assertSame(400, $scalar['status']);
     }
 
     /**

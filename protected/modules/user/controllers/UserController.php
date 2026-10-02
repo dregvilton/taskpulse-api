@@ -6,6 +6,7 @@ namespace app\modules\user\controllers;
 
 use app\controllers\BaseController;
 use app\models\User;
+use app\modules\user\exceptions\UserEmailTakenException;
 use app\modules\user\exceptions\UserNotFoundException;
 use app\modules\user\forms\UserForm;
 use app\modules\user\forms\UserSearchForm;
@@ -105,13 +106,19 @@ final class UserController extends BaseController
     public function actionCreate(): User|UserForm
     {
         $form = new UserForm(['scenario' => UserForm::SCENARIO_CREATE]);
-        $form->load($this->request->getBodyParams(), '');
+        $form->load($this->getBodyObject(), '');
 
         if (!$form->validate()) {
             return $form;
         }
 
-        $user = $this->userService->create($form);
+        try {
+            $user = $this->userService->create($form);
+        } catch (UserEmailTakenException) {
+            $form->addError('email', Yii::t('user', 'Email is already taken.'));
+
+            return $form;
+        }
         $this->response->setStatusCode(self::CREATED);
         $this->response->headers->set(
             'Location',
@@ -132,7 +139,7 @@ final class UserController extends BaseController
     {
         $this->assertOwnUser($id);
         $form = new UserForm(['scenario' => UserForm::SCENARIO_UPDATE]);
-        $form->load($this->request->getBodyParams(), '');
+        $form->load($this->getBodyObject(), '');
 
         if (!$form->validate()) {
             return $form;

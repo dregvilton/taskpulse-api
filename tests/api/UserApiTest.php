@@ -117,4 +117,126 @@ final class UserApiTest extends ApiTestCase
         self::assertSame('Не переданы данные для обновления.', $response['body'][0]['message']);
     }
 
+    /**
+     * @throws JsonException
+     */
+    public function testScalarJsonBodyIsRejected(): void
+    {
+        foreach (['42', '"text"', 'true', 'null', '[]', '[{"fullName":"Иван Петров"}]'] as $body) {
+            $response = $this->request('POST', '/users', $body);
+            self::assertSame(400, $response['status'], $body);
+        }
+
+        self::assertSame(422, $this->request('POST', '/users', '{"0":"value"}')['status']);
+
+        self::assertSame(0, (int) $this->db->createCommand('SELECT COUNT(*) FROM users')->queryScalar());
+    }
+
+    /**
+     * @throws JsonException
+     */
+    public function testConcurrentRegistrationWithSameEmail(): void
+    {
+        $transaction = $this->db->beginTransaction();
+        $first = null;
+        $second = null;
+
+        try {
+            $this->db->createCommand('LOCK TABLE users IN SHARE MODE')->execute();
+            $first = $this->openRegistrationRequest();
+            $second = $this->openRegistrationRequest();
+            $waiting = 0;
+            $deadline = microtime(true) + 5;
+            do {
+                $waiting = (int) $this->db->createCommand(
+                    "SELECT COUNT(*) FROM pg_locks WHERE relation = 'users'::regclass "
+                    . "AND mode = 'RowExclusiveLock' AND NOT granted",
+                )->queryScalar();
+                if ($waiting === 2) {
+                    break;
+                }
+                usleep(50_000);
+            } while (microtime(true) < $deadline);
+            self::assertSame(2, $waiting, 'Оба запроса должны дойти до вставки после проверки формы.');
+            $transaction->commit();
+
+            $responses = [$this->readRegistrationResponse($first), $this->readRegistrationResponse($second)];
+            $statuses = array_column($responses, 'status');
+            sort($statuses);
+
+            self::assertSame([201, 422], $statuses);
+            foreach ($responses as $response) {
+                if ($response['status'] === 422) {
+                    self::assertSame('email', $response['body'][0]['field']);
+                    self::assertSame('Почта уже используется.', $response['body'][0]['message']);
+                }
+            }
+            self::assertSame(1, (int) $this->db->createCommand('SELECT COUNT(*) FROM users')->queryScalar());
+        } finally {
+            if ($transaction->isActive) {
+                $transaction->rollBack();
+            }
+            if (is_resource($first)) {
+                fclose($first);
+            }
+            if (is_resource($second)) {
+                fclose($second);
+            }
+        }
+    }
+
+    /**
+     * @return resource
+     * @throws JsonException
+     */
+    private function openRegistrationRequest()
+    {
+        $baseUrl = $_ENV['API_BASE_URL'] ?? 'http://nginx';
+        $host = parse_url($baseUrl, PHP_URL_HOST);
+        self::assertIsString($host);
+        $port = parse_url($baseUrl, PHP_URL_PORT) ?? 80;
+        self::assertIsInt($port);
+
+        $socket = stream_socket_client("tcp://{$host}:{$port}", $errorCode, $errorMessage, 5);
+        self::assertNotFalse($socket, $errorMessage);
+        stream_set_timeout($socket, 10);
+
+        $body = json_encode([
+            'fullName' => 'Иван Петров',
+            'email' => 'concurrent@example.test',
+            'password' => 'long-test-password-123',
+        ], JSON_THROW_ON_ERROR);
+        $request = "POST /users HTTP/1.0\r\n"
+            . "Host: {$host}\r\n"
+            . "Accept: application/json\r\n"
+            . "Content-Type: application/json\r\n"
+            . 'Content-Length: ' . strlen($body) . "\r\n"
+            . "Connection: close\r\n\r\n"
+            . $body;
+        self::assertSame(strlen($request), fwrite($socket, $request));
+
+        return $socket;
+    }
+
+    /**
+     * @param resource $socket
+     * @return array{status: int, body: array<int|string, mixed>}
+     * @throws JsonException
+     */
+    private function readRegistrationResponse($socket): array
+    {
+        $response = stream_get_contents($socket);
+        self::assertNotFalse($response);
+        self::assertFalse(stream_get_meta_data($socket)['timed_out']);
+        fclose($socket);
+
+        self::assertStringContainsString("\r\n\r\n", $response);
+        [$rawHeaders, $rawBody] = explode("\r\n\r\n", $response, 2);
+        preg_match('/^HTTP\/\d\.\d (\d{3})/m', $rawHeaders, $status);
+        self::assertArrayHasKey(1, $status);
+        $body = json_decode($rawBody, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+
+        return ['status' => (int) $status[1], 'body' => $body];
+    }
 }

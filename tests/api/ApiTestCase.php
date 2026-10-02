@@ -96,7 +96,7 @@ abstract class ApiTestCase extends TestCase
      *
      * @param string $method
      * @param string $path
-     * @param array<string, mixed>|null $body
+     * @param array<string, mixed>|string|null $body
      * @param array<string, string> $extraHeaders
      * @return array{
      *     status: int,
@@ -105,7 +105,7 @@ abstract class ApiTestCase extends TestCase
      * }
      * @throws JsonException
      */
-    protected function request(string $method, string $path, ?array $body = null, array $extraHeaders = []): array
+    protected function request(string $method, string $path, array|string|null $body = null, array $extraHeaders = []): array
     {
         $headers = ['Accept: application/json'];
         if ($this->accessToken !== null && !array_key_exists('Authorization', $extraHeaders)) {
@@ -121,7 +121,9 @@ abstract class ApiTestCase extends TestCase
 
         if ($body !== null) {
             $headers[] = 'Content-Type: application/json';
-            $options['content'] = json_encode($body, JSON_THROW_ON_ERROR);
+            $options['content'] = is_string($body)
+                ? $body
+                : json_encode($body === [] ? new \stdClass() : $body, JSON_THROW_ON_ERROR);
         }
         $options['header'] = implode("\r\n", $headers);
 

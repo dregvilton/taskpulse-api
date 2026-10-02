@@ -173,6 +173,51 @@ final class TaskApiTest extends ApiTestCase
 
         $invalidFilter = $this->request('GET', '/tasks?completed=yes&sort=authorId');
         self::assertSame(422, $invalidFilter['status']);
+
+        $nullCompleted = $this->request('POST', '/tasks', ['title' => 'Некорректная задача', 'completed' => null]);
+        self::assertSame(422, $nullCompleted['status']);
+        self::assertSame('completed', $nullCompleted['body'][0]['field']);
+
+        $nullUpdate = $this->request('PATCH', '/tasks/1', ['completed' => null]);
+        self::assertSame(422, $nullUpdate['status']);
+        self::assertSame('completed', $nullUpdate['body'][0]['field']);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    public function testOptionalFiltersAndOffsets(): void
+    {
+        $this->createUsers();
+        $this->createTask(1, 'Задача');
+        $this->db->createCommand()->update('tasks', ['created_at' => '2026-09-01 00:30:00'], ['id' => 1])->execute();
+
+        $empty = $this->request('GET', '/tasks?completed=&createdFrom=&createdTo=&completedFrom=&completedTo=');
+        self::assertSame(200, $empty['status']);
+        self::assertSame(1, $empty['body']['_meta']['totalCount']);
+
+        $offset = $this->request('GET', '/tasks?createdFrom=2026-09-01T05%3A00%3A00%2B05%3A00');
+        self::assertSame(200, $offset['status']);
+        self::assertSame(1, $offset['body']['_meta']['totalCount']);
+
+        $reversed = $this->request('GET', '/tasks?createdFrom=2026-09-02T00%3A00%3A00%2B00%3A00'
+            . '&createdTo=2026-09-01T00%3A00%3A00%2B00%3A00');
+        self::assertSame(422, $reversed['status']);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    public function testScalarJsonBodyIsRejected(): void
+    {
+        $this->createUsers();
+
+        foreach (['42', '"text"', 'true', 'null', '[]', '[{"title":"Задача"}]'] as $body) {
+            $response = $this->request('POST', '/tasks', $body);
+            self::assertSame(400, $response['status'], $body);
+        }
+
+        self::assertSame(0, (int) $this->db->createCommand('SELECT COUNT(*) FROM tasks')->queryScalar());
     }
 
     private function createUsers(): void

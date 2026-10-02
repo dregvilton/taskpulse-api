@@ -53,7 +53,7 @@ final class AuthController extends BaseController
     public function actionLogin(): array|LoginForm
     {
         $form = new LoginForm();
-        $form->load($this->request->getBodyParams(), '');
+        $form->load($this->getBodyObject(), '');
         if (!$form->validate()) {
             return $form;
         }

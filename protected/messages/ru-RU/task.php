@@ -18,6 +18,7 @@ return [
     'Idempotency key must contain at most 255 characters.' => 'Ключ идемпотентности должен содержать не более 255 символов.',
     'Idempotency key was already used for another request.' => 'Ключ идемпотентности уже использован для другого запроса.',
     'Date must be in ISO 8601 format.' => 'Дата должна быть указана в формате ISO 8601.',
+    'Start date must not be later than end date.' => 'Начало периода не может быть позже конца.',
     'Sort value is invalid.' => 'Недопустимое значение сортировки.',
     'Task not found.' => 'Задача не найдена.',
     'Failed to get task.' => 'Не удалось получить задачу.',

@@ -117,6 +117,28 @@ final class AnalyticsApiTest extends ApiTestCase
         self::assertSame('authorId', $invalid['body'][0]['field']);
     }
 
+    /**
+     * @throws JsonException
+     */
+    public function testEmptyFiltersDateRangeAndOffset(): void
+    {
+        $this->createUsers();
+        $this->createTask(1, 'Первая задача', false);
+        $this->setTaskDates(1, '2026-09-01 00:30:00', null);
+
+        $empty = $this->request('GET', '/analytics/tasks?authorId=&createdFrom=&createdTo=');
+        self::assertSame(200, $empty['status']);
+        self::assertSame(1, $empty['body']['totalCreated']);
+
+        $offset = $this->request('GET', '/analytics/tasks?createdFrom=2026-09-01T05%3A00%3A00%2B05%3A00');
+        self::assertSame(200, $offset['status']);
+        self::assertSame(1, $offset['body']['totalCreated']);
+
+        $reversed = $this->request('GET', '/analytics/tasks?createdFrom=2026-09-02T00%3A00%3A00%2B00%3A00'
+            . '&createdTo=2026-09-01T00%3A00%3A00%2B00%3A00');
+        self::assertSame(422, $reversed['status']);
+    }
+
     private function createUsers(): void
     {
         $this->db->createCommand()->batchInsert(
