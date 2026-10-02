@@ -5,25 +5,21 @@ import { api } from './api.js'
 import { clearSession, session } from './session.js'
 
 const router = useRouter()
-const logoutError = ref('')
 const loggingOut = ref(false)
 
 async function logout() {
-  logoutError.value = ''
   loggingOut.value = true
+  let revokeFailed = false
   try {
     await api.logout()
-    clearSession()
-    await router.replace({ name: 'login' })
-  } catch (error) {
-    if (error.status === 401) {
-      clearSession()
-      await router.replace({ name: 'login' })
-    } else {
-      logoutError.value = error.message
-    }
+  } catch (failure) {
+    revokeFailed = failure.status !== 401
   } finally {
+    clearSession()
     loggingOut.value = false
+    await router.replace(
+      revokeFailed ? { name: 'login', query: { reason: 'logout-unconfirmed' } } : { name: 'login' },
+    )
   }
 }
 </script>
@@ -49,7 +45,6 @@ async function logout() {
         <button class="logout-button" type="button" :disabled="loggingOut" @click="logout">
           {{ loggingOut ? 'Выходим…' : 'Выйти из аккаунта' }} <span aria-hidden="true">↗</span>
         </button>
-        <p v-if="logoutError" class="sidebar-error" role="alert">{{ logoutError }}</p>
       </div>
     </aside>
 

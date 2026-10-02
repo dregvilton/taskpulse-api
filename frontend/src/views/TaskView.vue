@@ -52,6 +52,7 @@ async function load() {
 watch(() => route.fullPath, load, { immediate: true })
 
 async function save() {
+  if (busy.value) return
   busy.value = true
   error.value = ''
   fields.value = {}
@@ -78,6 +79,7 @@ async function save() {
 }
 
 async function toggleComplete() {
+  if (busy.value) return
   busy.value = true
   error.value = ''
   saved.value = false
@@ -93,6 +95,7 @@ async function toggleComplete() {
 }
 
 async function remove() {
+  if (busy.value) return
   if (!window.confirm('Удалить эту задачу? Действие нельзя отменить в интерфейсе.')) return
   busy.value = true
   error.value = ''
@@ -101,6 +104,7 @@ async function remove() {
     await router.replace({ name: 'tasks' })
   } catch (failure) {
     error.value = failure.message
+  } finally {
     busy.value = false
   }
 }
@@ -149,28 +153,42 @@ async function remove() {
             v-model="title"
             type="text"
             name="title"
+            :aria-invalid="Boolean(fields.title)"
+            :aria-describedby="fields.title ? 'title-error' : undefined"
             minlength="3"
             maxlength="255"
+            :disabled="busy"
             required
             placeholder="Например, подготовить презентацию"
+            @input="saved = false"
           />
-          <small v-if="fields.title" class="field-error">{{ fields.title }}</small>
+          <small v-if="fields.title" id="title-error" class="field-error">{{ fields.title }}</small>
         </label>
         <label
           >Описание <span class="optional">необязательно</span>
           <textarea
             v-model="description"
             name="description"
+            :aria-invalid="Boolean(fields.description)"
+            :aria-describedby="fields.description ? 'description-error' : undefined"
             rows="7"
             maxlength="5000"
+            :disabled="busy"
             placeholder="Что именно нужно сделать?"
+            @input="saved = false"
           ></textarea>
-          <small v-if="fields.description" class="field-error">{{ fields.description }}</small>
+          <small v-if="fields.description" id="description-error" class="field-error">{{
+            fields.description
+          }}</small>
         </label>
         <label class="checkbox-field"
-          ><input v-model="completed" type="checkbox" name="completed" /><span
-            >Задача завершена</span
-          ></label
+          ><input
+            v-model="completed"
+            type="checkbox"
+            name="completed"
+            :disabled="busy"
+            @change="saved = false"
+          /><span>Задача завершена</span></label
         >
         <div class="editor-actions">
           <button class="button button--primary" type="submit" :disabled="busy">

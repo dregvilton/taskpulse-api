@@ -170,10 +170,6 @@ button:disabled {
 .logout-button:hover {
   color: #3d5fdc;
 }
-.sidebar-error {
-  color: #b63649;
-  font-size: 12px;
-}
 .main-area {
   min-width: 0;
   flex: 1;

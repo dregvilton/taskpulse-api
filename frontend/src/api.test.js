@@ -66,4 +66,15 @@ describe('API client', () => {
     ).rejects.toBeInstanceOf(ApiError)
     expect(onUnauthorized).not.toHaveBeenCalled()
   })
+
+  it('lets logout handle an expired token without the global 401 redirect', async () => {
+    const onUnauthorized = vi.fn()
+    const client = createApiClient({
+      onUnauthorized,
+      transport: vi.fn().mockResolvedValue(reply(401, { message: 'Токен отозван.' })),
+    })
+
+    await expect(client.logout()).rejects.toMatchObject({ status: 401 })
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
 })

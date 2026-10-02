@@ -1,5 +1,11 @@
 import { expect, it } from 'vitest'
-import { formatDuration, toApiDate } from './format.js'
+import { formatDate, formatDuration, toApiDate } from './format.js'
+
+it('formats RFC 3339 dates and leaves unexpected values visible for diagnosis', () => {
+  expect(formatDate(null)).toBe('—')
+  expect(formatDate('2026-10-01T12:00:00+00:00')).not.toBe('2026-10-01T12:00:00+00:00')
+  expect(formatDate('invalid-date')).toBe('invalid-date')
+})
 
 it('formats duration without treating zero as missing data', () => {
   expect(formatDuration(null)).toBe('Нет данных')

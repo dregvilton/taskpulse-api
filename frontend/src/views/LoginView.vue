@@ -16,12 +16,14 @@ const fields = ref({})
 const isRegister = computed(() => mode.value === 'register')
 
 function switchMode(nextMode) {
+  if (busy.value) return
   mode.value = nextMode
   error.value = ''
   fields.value = {}
 }
 
 async function submit() {
+  if (busy.value) return
   error.value = ''
   fields.value = {}
   busy.value = true
@@ -82,6 +84,10 @@ async function submit() {
         <p v-if="route.query.reason === 'expired'" class="notice" role="status">
           Сессия истекла. Войдите снова.
         </p>
+        <p v-if="route.query.reason === 'logout-unconfirmed'" class="notice" role="status">
+          Вы вышли из интерфейса, но сервер не подтвердил отзыв токена. Он может действовать до
+          истечения срока.
+        </p>
         <p v-if="error" class="error-banner" role="alert">{{ error }}</p>
 
         <form class="stack-form" @submit.prevent="submit">
@@ -91,12 +97,17 @@ async function submit() {
               v-model="fullName"
               type="text"
               name="fullName"
+              :aria-invalid="Boolean(fields.fullName)"
+              :aria-describedby="fields.fullName ? 'full-name-error' : undefined"
               autocomplete="name"
               required
               maxlength="255"
+              :disabled="busy"
               placeholder="Как к вам обращаться"
             />
-            <small v-if="fields.fullName" class="field-error">{{ fields.fullName }}</small>
+            <small v-if="fields.fullName" id="full-name-error" class="field-error">{{
+              fields.fullName
+            }}</small>
           </label>
           <label
             >Электронная почта
@@ -104,11 +115,16 @@ async function submit() {
               v-model="email"
               type="email"
               name="email"
+              :aria-invalid="Boolean(fields.email)"
+              :aria-describedby="fields.email ? 'email-error' : undefined"
               autocomplete="email"
               required
+              :disabled="busy"
               placeholder="name@example.com"
             />
-            <small v-if="fields.email" class="field-error">{{ fields.email }}</small>
+            <small v-if="fields.email" id="email-error" class="field-error">{{
+              fields.email
+            }}</small>
           </label>
           <label
             >Пароль
@@ -116,12 +132,17 @@ async function submit() {
               v-model="password"
               type="password"
               name="password"
+              :aria-invalid="Boolean(fields.password)"
+              :aria-describedby="fields.password ? 'password-error' : undefined"
               :autocomplete="isRegister ? 'new-password' : 'current-password'"
               :minlength="isRegister ? 12 : undefined"
               required
+              :disabled="busy"
               :placeholder="isRegister ? 'Не менее 12 символов' : 'Ваш пароль'"
             />
-            <small v-if="fields.password" class="field-error">{{ fields.password }}</small>
+            <small v-if="fields.password" id="password-error" class="field-error">{{
+              fields.password
+            }}</small>
           </label>
           <button class="button button--primary button--wide" type="submit" :disabled="busy">
             {{ busy ? 'Подождите…' : isRegister ? 'Создать аккаунт' : 'Войти' }}
@@ -131,7 +152,11 @@ async function submit() {
 
         <p class="login-switch">
           {{ isRegister ? 'Уже есть аккаунт?' : 'Впервые здесь?' }}
-          <button type="button" @click="switchMode(isRegister ? 'login' : 'register')">
+          <button
+            type="button"
+            :disabled="busy"
+            @click="switchMode(isRegister ? 'login' : 'register')"
+          >
             {{ isRegister ? 'Войти' : 'Зарегистрироваться' }}
           </button>
         </p>

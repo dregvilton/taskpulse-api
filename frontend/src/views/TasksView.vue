@@ -65,6 +65,7 @@ function resetDates() {
 }
 
 async function complete(task) {
+  if (updatingId.value !== null) return
   actionError.value = ''
   updatingId.value = task.id
   try {
@@ -180,7 +181,7 @@ async function complete(task) {
             <button
               class="text-button"
               type="button"
-              :disabled="updatingId === task.id"
+              :disabled="updatingId !== null"
               :aria-label="
                 task.completed
                   ? `Вернуть задачу ${task.title} в работу`

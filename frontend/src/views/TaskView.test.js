@@ -69,6 +69,9 @@ it('edits an existing task and shows the saved state', async () => {
     completed: false,
   })
   expect(wrapper.get('[role="status"]').text()).toContain('сохранены')
+
+  await wrapper.get('input[name="title"]').setValue('Ещё одно изменение')
+  expect(wrapper.find('.success-banner').exists()).toBe(false)
 })
 
 it('keeps unsaved text when completing a task with the quick action', async () => {
@@ -95,4 +98,23 @@ it('keeps unsaved text when completing a task with the quick action', async () =
   expect(wrapper.get('input[name="title"]').element.value).toBe('Несохранённое название')
   expect(wrapper.get('textarea[name="description"]').element.value).toBe('Несохранённое описание')
   expect(wrapper.get('input[name="completed"]').element.checked).toBe(true)
+})
+
+it('connects task validation messages to their fields', async () => {
+  api.createTask.mockRejectedValue({
+    message: 'Проверьте заполненные поля.',
+    fields: { title: 'Укажите название.', description: 'Описание слишком длинное.' },
+  })
+  const wrapper = mount(TaskView, { global: { stubs: { RouterLink: RouterLinkStub } } })
+  await wrapper.get('input[name="title"]').setValue('Новая задача')
+  await wrapper.get('form').trigger('submit')
+  await flushPromises()
+
+  expect(wrapper.get('input[name="title"]').attributes('aria-invalid')).toBe('true')
+  expect(wrapper.get('input[name="title"]').attributes('aria-describedby')).toBe('title-error')
+  expect(wrapper.get('#title-error').text()).toBe('Укажите название.')
+  expect(wrapper.get('textarea[name="description"]').attributes('aria-invalid')).toBe('true')
+  expect(wrapper.get('textarea[name="description"]').attributes('aria-describedby')).toBe(
+    'description-error',
+  )
 })

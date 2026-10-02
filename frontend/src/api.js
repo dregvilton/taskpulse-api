@@ -77,7 +77,8 @@ export function createApiClient({
         })
       ).data,
     registerUser: async (body) => (await request('/users', { method: 'POST', body })).data,
-    logout: async () => (await request('/auth/logout', { method: 'POST' })).data,
+    logout: async () =>
+      (await request('/auth/logout', { method: 'POST', skipUnauthorized: true })).data,
     listTasks: async (query) => {
       const { data, headers } = await request('/tasks', { query })
       return {

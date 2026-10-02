@@ -65,3 +65,27 @@ it('requests the next page using API pagination', async () => {
 
   expect(api.listTasks).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, perPage: 9 }))
 })
+
+it('blocks all quick actions while a task update is pending', async () => {
+  const tasks = [
+    { id: 1, title: 'Первая', completed: false },
+    { id: 2, title: 'Вторая', completed: false },
+  ]
+  api.listTasks.mockResolvedValue({ items: tasks, pagination: { page: 1, pages: 1, total: 2 } })
+  let resolveUpdate
+  api.updateTask.mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)))
+  const wrapper = mount(TasksView, { global: { stubs: { RouterLink: RouterLinkStub } } })
+  await flushPromises()
+
+  await wrapper.get('button[aria-label="Завершить задачу Первая"]').trigger('click')
+  const otherButton = wrapper.get('button[aria-label="Завершить задачу Вторая"]')
+  expect(otherButton.attributes('disabled')).toBeDefined()
+  otherButton.element.click()
+  expect(api.updateTask).toHaveBeenCalledTimes(1)
+
+  resolveUpdate({ ...tasks[0], completed: true })
+  await flushPromises()
+  expect(
+    wrapper.get('button[aria-label="Завершить задачу Вторая"]').attributes('disabled'),
+  ).toBeUndefined()
+})
