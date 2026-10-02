@@ -74,6 +74,11 @@ return [
             'class' => FileCache::class,
         ],
         'db' => $db,
+        'formatter' => [
+            'datetimeFormat' => 'php:c',
+            'defaultTimeZone' => 'UTC',
+            'timeZone' => 'UTC',
+        ],
         'healthCheckService' => static function (): HealthCheckService {
             $db = Yii::$app->get('db', false);
             if (!$db instanceof DbConnection) {

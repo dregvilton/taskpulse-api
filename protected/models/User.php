@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\models;
 
+use Closure;
+use Yii;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
 use yii\db\Expression;
@@ -125,7 +127,7 @@ final class User extends ActiveRecord implements IdentityInterface
     /**
      * Поля ответа API.
      *
-     * @return array<string, string>
+     * @return array<string, string|Closure>
      */
     public function fields(): array
     {
@@ -134,8 +136,8 @@ final class User extends ActiveRecord implements IdentityInterface
             'fullName' => 'full_name',
             'phone' => 'phone',
             'email' => 'email',
-            'createdAt' => 'created_at',
-            'updatedAt' => 'updated_at',
+            'createdAt' => static fn(self $user): string => Yii::$app->formatter->asDatetime($user->created_at),
+            'updatedAt' => static fn(self $user): string => Yii::$app->formatter->asDatetime($user->updated_at),
         ];
     }
 }

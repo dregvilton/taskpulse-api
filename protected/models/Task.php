@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\models;
 
+use Closure;
+use Yii;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveQuery;
 use yii\db\ActiveRecord;
@@ -65,7 +67,7 @@ final class Task extends ActiveRecord
     /**
      * Поля ответа API.
      *
-     * @return array<string, string>
+     * @return array<string, string|Closure>
      */
     public function fields(): array
     {
@@ -75,9 +77,11 @@ final class Task extends ActiveRecord
             'title' => 'title',
             'description' => 'description',
             'completed' => 'completed',
-            'createdAt' => 'created_at',
-            'updatedAt' => 'updated_at',
-            'completedAt' => 'completed_at',
+            'createdAt' => static fn(self $task): string => Yii::$app->formatter->asDatetime($task->created_at),
+            'updatedAt' => static fn(self $task): string => Yii::$app->formatter->asDatetime($task->updated_at),
+            'completedAt' => static fn(self $task): ?string => $task->completed_at === null
+                ? null
+                : Yii::$app->formatter->asDatetime($task->completed_at),
         ];
     }
 }
