@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use app\extensions\DbConnection;
+use yii\base\Event;
 
 return [
     'class' => DbConnection::class,
@@ -15,6 +16,11 @@ return [
     'username' => $_ENV['DB_USER'] ?? 'taskpulse',
     'password' => $_ENV['DB_PASSWORD'] ?? 'taskpulse',
     'charset' => 'utf8',
+    'on afterOpen' => static function (Event $event): void {
+        /** @var DbConnection $db */
+        $db = $event->sender;
+        $db->createCommand("SET TIME ZONE 'UTC'")->execute();
+    },
     'enableSchemaCache' => !YII_DEBUG,
     'schemaCacheDuration' => 3600,
     'schemaCache' => 'cache',

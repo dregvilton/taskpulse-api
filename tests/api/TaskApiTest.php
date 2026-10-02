@@ -27,6 +27,9 @@ final class TaskApiTest extends ApiTestCase
         self::assertSame(1, $created['body']['authorId']);
         self::assertFalse($created['body']['completed']);
         self::assertNull($created['body']['completedAt']);
+        $utcDateTimePattern = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$/';
+        self::assertMatchesRegularExpression($utcDateTimePattern, $created['body']['createdAt']);
+        self::assertMatchesRegularExpression($utcDateTimePattern, $created['body']['updatedAt']);
 
         $view = $this->request('GET', '/tasks/1');
         self::assertSame(200, $view['status']);
@@ -36,6 +39,7 @@ final class TaskApiTest extends ApiTestCase
         self::assertSame(200, $completed['status']);
         self::assertTrue($completed['body']['completed']);
         self::assertIsString($completed['body']['completedAt']);
+        self::assertMatchesRegularExpression($utcDateTimePattern, $completed['body']['completedAt']);
         $completedAt = $completed['body']['completedAt'];
 
         $unchangedState = $this->request('PATCH', '/tasks/1', ['completed' => true]);
@@ -110,6 +114,8 @@ final class TaskApiTest extends ApiTestCase
         self::assertSame(200, $response['status']);
         self::assertCount(1, $response['body']['items']);
         self::assertSame('Бета', $response['body']['items'][0]['title']);
+        self::assertSame('2026-09-02T10:00:00+00:00', $response['body']['items'][0]['createdAt']);
+        self::assertSame('2026-09-02T11:00:00+00:00', $response['body']['items'][0]['completedAt']);
         self::assertSame(2, $response['body']['_meta']['totalCount']);
         self::assertSame(2, $response['body']['_meta']['pageCount']);
 
@@ -135,6 +141,10 @@ final class TaskApiTest extends ApiTestCase
         self::assertCount(2, $response['body']['items']);
         self::assertSame(1, $response['body']['items'][0]['authorId']);
         self::assertSame(1, $response['body']['items'][1]['authorId']);
+        self::assertMatchesRegularExpression(
+            '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$/',
+            $response['body']['items'][0]['createdAt'],
+        );
 
         $missing = $this->request('GET', '/users/999/tasks');
         self::assertSame(403, $missing['status']);

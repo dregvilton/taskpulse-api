@@ -20,6 +20,7 @@ use app\services\AnalyticsCache;
 use JsonException;
 use RuntimeException;
 use Throwable;
+use Yii;
 use yii\base\InvalidConfigException;
 use yii\data\SqlDataProvider;
 use yii\db\Exception;
@@ -239,7 +240,7 @@ final class TaskService
      */
     public function getList(TaskSearchForm $form, int $ownerId): SqlDataProvider
     {
-        return $this->repository->getList($form, $ownerId);
+        return $this->formatListDates($this->repository->getList($form, $ownerId));
     }
 
     /**
@@ -256,7 +257,30 @@ final class TaskService
             throw new UserNotFoundException("Пользователь {$userId} не найден.");
         }
 
-        return $this->repository->getList($form, $userId);
+        return $this->formatListDates($this->repository->getList($form, $userId));
+    }
+
+    /**
+     * Привести даты списка к формату API.
+     *
+     * @param SqlDataProvider $provider
+     * @return SqlDataProvider
+     */
+    private function formatListDates(SqlDataProvider $provider): SqlDataProvider
+    {
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $provider->getModels();
+        $provider->setModels(array_map(static function (array $row): array {
+            $row['createdAt'] = Yii::$app->formatter->asDatetime($row['createdAt']);
+            $row['updatedAt'] = Yii::$app->formatter->asDatetime($row['updatedAt']);
+            if ($row['completedAt'] !== null) {
+                $row['completedAt'] = Yii::$app->formatter->asDatetime($row['completedAt']);
+            }
+
+            return $row;
+        }, $rows));
+
+        return $provider;
     }
 
     /**

@@ -8,23 +8,27 @@ const to = ref('')
 const analytics = ref(null)
 const loading = ref(true)
 const error = ref('')
+let loadNumber = 0
 
 async function load() {
+  const currentLoad = ++loadNumber
   if (from.value && to.value && from.value > to.value) {
+    loading.value = false
     error.value = 'Начало периода не может быть позже конца.'
     return
   }
   loading.value = true
   error.value = ''
   try {
-    analytics.value = await api.getAnalytics({
+    const result = await api.getAnalytics({
       createdFrom: toApiDate(from.value),
       createdTo: toApiDate(to.value, true),
     })
+    if (currentLoad === loadNumber) analytics.value = result
   } catch (failure) {
-    error.value = failure.message
+    if (currentLoad === loadNumber) error.value = failure.message
   } finally {
-    loading.value = false
+    if (currentLoad === loadNumber) loading.value = false
   }
 }
 

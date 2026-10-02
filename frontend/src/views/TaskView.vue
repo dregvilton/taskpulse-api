@@ -80,9 +80,11 @@ async function save() {
 async function toggleComplete() {
   busy.value = true
   error.value = ''
+  saved.value = false
   try {
-    fillForm(await api.updateTask(route.params.id, { completed: !task.value.completed }))
-    saved.value = true
+    const updated = await api.updateTask(route.params.id, { completed: !task.value.completed })
+    task.value = updated
+    completed.value = updated.completed
   } catch (failure) {
     error.value = failure.message
   } finally {

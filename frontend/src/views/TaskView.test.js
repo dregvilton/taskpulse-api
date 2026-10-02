@@ -70,3 +70,29 @@ it('edits an existing task and shows the saved state', async () => {
   })
   expect(wrapper.get('[role="status"]').text()).toContain('сохранены')
 })
+
+it('keeps unsaved text when completing a task with the quick action', async () => {
+  route.name = 'task'
+  route.params = { id: '7' }
+  route.fullPath = '/tasks/7'
+  const original = {
+    id: 7,
+    title: 'Исходное название',
+    description: 'Исходное описание',
+    completed: false,
+  }
+  api.getTask.mockResolvedValue(original)
+  api.updateTask.mockResolvedValue({ ...original, completed: true })
+
+  const wrapper = mount(TaskView, { global: { stubs: { RouterLink: RouterLinkStub } } })
+  await flushPromises()
+  await wrapper.get('input[name="title"]').setValue('Несохранённое название')
+  await wrapper.get('textarea[name="description"]').setValue('Несохранённое описание')
+  await wrapper.get('button[type="button"].button--secondary').trigger('click')
+  await flushPromises()
+
+  expect(api.updateTask).toHaveBeenCalledWith('7', { completed: true })
+  expect(wrapper.get('input[name="title"]').element.value).toBe('Несохранённое название')
+  expect(wrapper.get('textarea[name="description"]').element.value).toBe('Несохранённое описание')
+  expect(wrapper.get('input[name="completed"]').element.checked).toBe(true)
+})

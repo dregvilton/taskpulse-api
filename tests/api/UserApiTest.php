@@ -22,6 +22,9 @@ final class UserApiTest extends ApiTestCase
         self::assertArrayNotHasKey('password', $created['body']);
         self::assertArrayNotHasKey('password_hash', $created['body']);
         self::assertIsString($created['body']['createdAt']);
+        $utcDateTimePattern = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$/';
+        self::assertMatchesRegularExpression($utcDateTimePattern, $created['body']['createdAt']);
+        self::assertMatchesRegularExpression($utcDateTimePattern, $created['body']['updatedAt']);
 
         $view = $this->request('GET', '/users/1');
         self::assertSame(200, $view['status']);

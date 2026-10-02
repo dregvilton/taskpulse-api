@@ -637,10 +637,12 @@ components:
           nullable: true
         createdAt:
           type: string
-          example: '2026-08-28 12:00:00'
+          format: date-time
+          example: '2026-08-28T12:00:00+00:00'
         updatedAt:
           type: string
-          example: '2026-08-28 12:00:00'
+          format: date-time
+          example: '2026-08-28T12:00:00+00:00'
     CreateUser:
       type: object
       required: [fullName, email, password]
@@ -699,14 +701,17 @@ components:
           type: boolean
         createdAt:
           type: string
-          example: '2026-09-03 12:00:00'
+          format: date-time
+          example: '2026-09-03T12:00:00+00:00'
         updatedAt:
           type: string
-          example: '2026-09-03 12:00:00'
+          format: date-time
+          example: '2026-09-03T12:00:00+00:00'
         completedAt:
           type: string
+          format: date-time
           nullable: true
-          example: '2026-09-03 13:00:00'
+          example: '2026-09-03T13:00:00+00:00'
     CreateTask:
       type: object
       required: [title]

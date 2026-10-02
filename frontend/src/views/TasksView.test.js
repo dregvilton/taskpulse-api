@@ -38,7 +38,7 @@ it('completes a task and refreshes the list', async () => {
     title: 'Подготовить отчёт',
     description: null,
     completed: false,
-    createdAt: '2026-10-01 12:00:00',
+    createdAt: '2026-10-01T12:00:00+00:00',
   }
   api.listTasks.mockResolvedValue({ items: [task], pagination: { page: 1, pages: 1, total: 1 } })
   api.updateTask.mockResolvedValue({ ...task, completed: true })
@@ -54,7 +54,7 @@ it('completes a task and refreshes the list', async () => {
 
 it('requests the next page using API pagination', async () => {
   api.listTasks.mockResolvedValue({
-    items: [{ id: 1, title: 'Задача', completed: false, createdAt: '2026-10-01 12:00:00' }],
+    items: [{ id: 1, title: 'Задача', completed: false, createdAt: '2026-10-01T12:00:00+00:00' }],
     pagination: { page: 1, pages: 3, total: 21 },
   })
   const wrapper = mount(TasksView, { global: { stubs: { RouterLink: RouterLinkStub } } })
