@@ -43,3 +43,14 @@ curl --fail http://127.0.0.1:8080/health
 ```
 
 Через публичный HTTPS проверьте `/`, `/app/`, `/health`, `/docs/`, `/openapi.yaml`, вход, задачи и аналитику. При ошибке используйте `X-Request-Id`, логи контейнеров и `journalctl -u caddy`; проверьте статус Caddy и DNS A-запись. Для проверки очередей используйте `docker compose -f compose.prod.yaml exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged`. RabbitMQ management-порт наружу не открыт.
+
+С машины с `curl` и `jq` можно выполнить воспроизводимый smoke-сценарий (только для общего демо-аккаунта):
+
+```bash
+BASE_URL=https://demo.example.org \
+DEMO_EMAIL='<публичная почта демо>' \
+DEMO_PASSWORD='<публичный пароль демо>' \
+bash deploy/smoke-demo.sh
+```
+
+Сценарий проверяет UI-файлы, документацию, healthcheck, вход и выход, ограничения доступа, CRUD задач, идемпотентность и аналитику. Он создаёт и удаляет временную демо-задачу; после теста дополнительно проверьте публикацию и обработку `task_events` в PostgreSQL и пустые основную/retry/DLQ очереди.
