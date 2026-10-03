@@ -79,6 +79,19 @@ final class TaskFormTest extends TestCase
         );
     }
 
+    public function testCompletedCannotBeNull(): void
+    {
+        $form = new TaskForm(['scenario' => TaskForm::SCENARIO_CREATE]);
+        $form->load(['title' => 'Подготовить отчёт', 'completed' => null], '');
+        $form->authorId = $this->authorId;
+
+        self::assertFalse($form->validate());
+        self::assertSame(
+            'Признак завершения должен быть логическим значением.',
+            $form->getFirstError('completed'),
+        );
+    }
+
     public function testUpdateScenarioTracksFields(): void
     {
         $form = new TaskForm(['scenario' => TaskForm::SCENARIO_UPDATE]);

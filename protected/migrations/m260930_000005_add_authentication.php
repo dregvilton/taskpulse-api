@@ -65,18 +65,10 @@ final class m260930_000005_add_authentication extends Migration
 
     /**
      * @return void
-     * @throws Exception
+     * @throws RuntimeException
      */
     public function safeDown(): void
     {
-        $this->dropForeignKey('fk-idempotency_keys-user_id', '{{%idempotency_keys}}');
-        $this->dropPrimaryKey('pk-idempotency_keys', '{{%idempotency_keys}}');
-        $this->addPrimaryKey('pk-idempotency_keys', '{{%idempotency_keys}}', 'idempotency_key');
-        $this->dropColumn('{{%idempotency_keys}}', 'user_id');
-
-        $this->dropTable('{{%auth_tokens}}');
-        $this->execute('DROP INDEX "uq-users-active-email"');
-        $this->dropColumn('{{%users}}', 'password_hash');
-        $this->dropColumn('{{%users}}', 'email');
+        throw new RuntimeException('Миграция необратима: ключи идемпотентности теперь уникальны в рамках пользователя.');
     }
 }

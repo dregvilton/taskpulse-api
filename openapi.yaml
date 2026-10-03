@@ -51,6 +51,8 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '422':
           $ref: '#/components/responses/ValidationError'
         '429':
@@ -133,6 +135,7 @@ paths:
       security: []
       tags: [Users]
       summary: Зарегистрировать пользователя
+      description: Повторная регистрация с занятой почтой возвращает 422, в том числе при одновременных запросах.
       requestBody:
         required: true
         content:
@@ -154,6 +157,8 @@ paths:
                 $ref: '#/components/schemas/User'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/WritesDisabled'
         '429':
@@ -201,6 +206,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/Forbidden'
         '429':
@@ -306,6 +313,8 @@ paths:
                 $ref: '#/components/schemas/Task'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '409':
@@ -359,6 +368,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/WritesDisabled'
         '429':
@@ -429,7 +440,7 @@ components:
     AuthorId:
       name: authorId
       in: query
-      description: Если указан, должен совпадать с ID текущего пользователя; иначе 403.
+      description: Если указан, должен совпадать с ID текущего пользователя; иначе 403. Пустое значение игнорируется.
       schema:
         type: integer
         format: int64
@@ -437,29 +448,34 @@ components:
     Completed:
       name: completed
       in: query
+      description: Пустое значение считается отсутствующим фильтром.
       schema:
         type: boolean
     CreatedFrom:
       name: createdFrom
       in: query
+      description: ISO 8601 с часовым поясом; приводится к UTC. Пустое значение игнорируется. Не позже createdTo.
       schema:
         type: string
         format: date-time
     CreatedTo:
       name: createdTo
       in: query
+      description: ISO 8601 с часовым поясом; приводится к UTC. Пустое значение игнорируется.
       schema:
         type: string
         format: date-time
     CompletedFrom:
       name: completedFrom
       in: query
+      description: ISO 8601 с часовым поясом; приводится к UTC. Пустое значение игнорируется. Не позже completedTo.
       schema:
         type: string
         format: date-time
     CompletedTo:
       name: completedTo
       in: query
+      description: ISO 8601 с часовым поясом; приводится к UTC. Пустое значение игнорируется.
       schema:
         type: string
         format: date-time
@@ -507,7 +523,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     BadRequest:
-      description: Некорректный запрос
+      description: Некорректный запрос, включая тело JSON, которое не является объектом
       content:
         application/json:
           schema:
@@ -727,6 +743,7 @@ components:
         completed:
           type: boolean
           default: false
+          nullable: false
     UpdateTask:
       type: object
       minProperties: 1

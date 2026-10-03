@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\modules\task\forms;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Yii;
 use yii\base\Model;
 use yii\validators\DateValidator;
@@ -40,6 +42,11 @@ final class TaskSearchForm extends Model
     {
         return [
             [
+                ['authorId', 'createdFrom', 'createdTo', 'completedFrom', 'completedTo'],
+                'filter',
+                'filter' => static fn(mixed $value): mixed => $value === '' ? null : $value,
+            ],
+            [
                 'authorId',
                 'integer',
                 'min' => 1,
@@ -52,6 +59,7 @@ final class TaskSearchForm extends Model
                 'filter' => static fn(mixed $value): mixed => match ($value) {
                     'true' => true,
                     'false' => false,
+                    '' => null,
                     default => $value,
                 },
             ],
@@ -69,6 +77,29 @@ final class TaskSearchForm extends Model
                 'type' => DateValidator::TYPE_DATETIME,
                 'format' => 'php:Y-m-d\TH:i:sP',
                 'message' => Yii::t('task', 'Date must be in ISO 8601 format.'),
+            ],
+            [
+                ['createdFrom', 'createdTo', 'completedFrom', 'completedTo'],
+                'filter',
+                'filter' => static fn(mixed $value): mixed => is_string($value)
+                    ? (new DateTimeImmutable($value))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s')
+                    : $value,
+            ],
+            [
+                'createdFrom',
+                'compare',
+                'compareAttribute' => 'createdTo',
+                'operator' => '<=',
+                'when' => static fn(self $form): bool => $form->createdTo !== null && !$form->hasErrors('createdTo'),
+                'message' => Yii::t('task', 'Start date must not be later than end date.'),
+            ],
+            [
+                'completedFrom',
+                'compare',
+                'compareAttribute' => 'completedTo',
+                'operator' => '<=',
+                'when' => static fn(self $form): bool => $form->completedTo !== null && !$form->hasErrors('completedTo'),
+                'message' => Yii::t('task', 'Start date must not be later than end date.'),
             ],
             [
                 'page',

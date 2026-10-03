@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace app\modules\user\services;
 
 use app\models\User;
+use app\modules\user\exceptions\UserEmailTakenException;
 use app\modules\user\exceptions\UserNotFoundException;
 use app\modules\user\exceptions\UserSaveException;
 use app\modules\user\forms\UserForm;
 use Yii;
 use yii\data\ActiveDataProvider;
 use yii\db\Expression;
+use yii\db\IntegrityException;
 
 /**
  * Сервис управления пользователями.
@@ -22,7 +24,7 @@ final class UserService
      *
      * @param UserForm $form
      * @return User
-     * @throws UserSaveException
+     * @throws IntegrityException|UserEmailTakenException|UserSaveException
      */
     public function create(UserForm $form): User
     {
@@ -30,7 +32,18 @@ final class UserService
         $user->setAttributes($form->getUserAttributes(), false);
         $user->setAttribute('password_hash', Yii::$app->security->generatePasswordHash((string) $form->password));
 
-        $this->save($user);
+        try {
+            $this->save($user);
+        } catch (IntegrityException $exception) {
+            if (
+                ($exception->errorInfo[0] ?? null) === '23505'
+                && str_contains((string) ($exception->errorInfo[2] ?? ''), 'uq-users-active-email')
+            ) {
+                throw new UserEmailTakenException('Почта уже используется.', previous: $exception);
+            }
+
+            throw $exception;
+        }
         $user->refresh();
 
         return $user;
@@ -84,7 +97,7 @@ final class UserService
      * @param UserForm $form
      * @return User
      * @throws UserNotFoundException
-     * @throws UserSaveException
+     * @throws IntegrityException|UserSaveException
      */
     public function update(int $id, UserForm $form): User
     {
@@ -119,7 +132,7 @@ final class UserService
      *
      * @param User $user
      * @return void
-     * @throws UserSaveException
+     * @throws IntegrityException|UserSaveException
      */
     private function save(User $user): void
     {

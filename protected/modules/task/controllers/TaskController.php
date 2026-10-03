@@ -136,7 +136,7 @@ final class TaskController extends BaseController
      */
     public function actionCreate(): Task|TaskForm|array
     {
-        $body = $this->request->getBodyParams();
+        $body = $this->getBodyObject();
         $form = new TaskForm(['scenario' => TaskForm::SCENARIO_CREATE]);
         $form->load($body, '');
         $ownerId = $this->currentUserId();
@@ -188,7 +188,7 @@ final class TaskController extends BaseController
     public function actionUpdate(int $id): Task|TaskForm
     {
         $form = new TaskForm(['scenario' => TaskForm::SCENARIO_UPDATE]);
-        $form->load($this->request->getBodyParams(), '');
+        $form->load($this->getBodyObject(), '');
 
         if (!$form->validate()) {
             return $form;

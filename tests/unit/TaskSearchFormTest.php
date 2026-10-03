@@ -24,6 +24,8 @@ final class TaskSearchFormTest extends TestCase
 
         self::assertTrue($form->validate());
         self::assertTrue($form->completed);
+        self::assertSame('2026-08-31 19:00:00', $form->createdFrom);
+        self::assertSame('2026-09-30 18:59:59', $form->completedTo);
     }
 
     public function testInvalidFilters(): void
@@ -47,5 +49,38 @@ final class TaskSearchFormTest extends TestCase
         );
         self::assertSame('Размер страницы должен быть не больше 100.', $form->getFirstError('perPage'));
         self::assertSame('Недопустимое значение сортировки.', $form->getFirstError('sort'));
+    }
+
+    public function testEmptyFiltersAreIgnored(): void
+    {
+        $form = new TaskSearchForm();
+        $form->load([
+            'authorId' => '',
+            'completed' => '',
+            'createdFrom' => '',
+            'createdTo' => '',
+            'completedFrom' => '',
+            'completedTo' => '',
+        ], '');
+
+        self::assertTrue($form->validate());
+        self::assertNull($form->authorId);
+        self::assertNull($form->completed);
+        self::assertNull($form->createdFrom);
+    }
+
+    public function testReversedDateRangesAreRejected(): void
+    {
+        $form = new TaskSearchForm();
+        $form->load([
+            'createdFrom' => '2026-09-02T00:00:00+00:00',
+            'createdTo' => '2026-09-01T00:00:00+00:00',
+            'completedFrom' => '2026-09-02T00:00:00+00:00',
+            'completedTo' => '2026-09-01T00:00:00+00:00',
+        ], '');
+
+        self::assertFalse($form->validate());
+        self::assertSame('Начало периода не может быть позже конца.', $form->getFirstError('createdFrom'));
+        self::assertSame('Начало периода не может быть позже конца.', $form->getFirstError('completedFrom'));
     }
 }
