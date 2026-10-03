@@ -1,24 +1,45 @@
 # Развёртывание TaskPulse
 
-## Локальный запуск
+## Локальная разработка
 
-Нужны Docker Compose и GNU Make. Скопируйте `.env.example` в `.env`, замените примерные значения и выполните `make init`. Команда собирает образы, устанавливает Composer-зависимости, поднимает контейнеры и применяет миграции. Интерфейс доступен на `/app/`, Swagger UI — на `/docs`, спецификация — на `/openapi.yaml`, состояние сервисов — на `/health`.
+Нужны Docker Compose и GNU Make. Скопируйте `.env.example` в `.env`, замените примерные значения и выполните `make init`. Интерфейс доступен на `/app/`, Swagger UI — на `/docs/`, состояние зависимостей — на `/health`. `make check` запускает обычные тесты, отдельные тесты демо-режима, PHPStan, проверку стиля, Vue-тесты и OpenAPI lint.
 
-Для последующих обновлений: `make up` и `make migrate`. Перед изменением схемы базы сделайте резервную копию. Миграция `m260930_000005_add_authentication` намеренно необратима: откат этой версии требует восстановления из копии, а не `migrate/down`.
+## Production на одном VPS
 
-## VPS и HTTPS
+Предусмотренная схема: Ubuntu 24.04, Docker Engine и Compose plugin, Caddy как внешний HTTPS-прокси, `compose.prod.yaml` с приложением на `127.0.0.1:8080`. PostgreSQL, Redis и RabbitMQ не публикуют порты. Nginx доверяет `X-Forwarded-For` только Docker-шлюзу `172.28.42.1`; Caddy не принимает произвольный клиентский `X-Forwarded-For` как доверенный. Приложение и Composer-зависимости находятся внутри PHP-образа, исходники не монтируются из checkout. Все сервисы имеют restart policy и ротацию Docker-логов.
 
-Текущий `compose.yaml` удобен для разработки и демо, но не является готовой production-конфигурацией: PHP-код монтируется из checkout, а сам Nginx слушает HTTP. До публичного релиза нужны отдельные production-настройки и проверка резервного восстановления.
+На новом VPS от root:
 
-Для закрытого стенда на VPS:
+```bash
+git clone https://github.com/dregvilton/taskpulse-api.git /opt/taskpulse
+cd /opt/taskpulse
+bash deploy/bootstrap-vps.sh
+bash deploy/init-env.sh
+bash deploy/deploy.sh
+```
 
-1. Создайте отдельную базу и `.env` вне Git. Укажите `APP_ENV=prod`, `APP_DEBUG=false`, длинный случайный `APP_COOKIE_VALIDATION_KEY` и уникальные пароли PostgreSQL/RabbitMQ. Не публикуйте порты PostgreSQL, Redis и RabbitMQ.
-2. Привяжите приложение к loopback через `APP_PORT=127.0.0.1:8080`. Внешний reverse proxy должен завершать HTTPS и передавать запросы на этот адрес. До включения записи настройте в Nginx доверенный IP клиента: иначе rate limiting увидит только адрес proxy.
-3. Установите зависимости через `docker compose run --rm app composer install --no-dev --no-interaction --prefer-dist`, поднимите сервисы `docker compose up -d --build` и примените миграции `docker compose exec -T app php yii migrate --interactive=0`.
-4. Проверьте через HTTPS `/health`, `/docs`, `/openapi.yaml`, вход и чтение задач. Для поиска сбоя используйте `X-Request-Id` и `docker compose logs --tail=100 app nginx publisher worker`. При необходимости задайте `SENTRY_DSN` только в `.env`.
+`bootstrap-vps.sh` обновляет Ubuntu, создаёт постоянный swap 2 ГБ, устанавливает Docker/Compose, Caddy и UFW. Разрешены только входящие 22/80/443. После включения firewall обязательно проверьте новый SSH-сеанс; не отключайте прежний способ входа до этой проверки. Docker может обходить правила UFW для опубликованных портов, поэтому `compose.prod.yaml` привязывает только Nginx к loopback и не публикует PostgreSQL, Redis или RabbitMQ.
 
-Для публичного стенда оставьте `APP_PUBLIC_WRITES=false`. Тогда регистрация, создание и изменение данных возвращают `403`, а вход и чтение доступны только заранее подготовленному аккаунту. Создавать такой аккаунт и несекретные демонстрационные задачи следует **до** открытия доступа извне, в изолированном окружении. Не храните его пароль или токен в репозитории. Интерфейс пока показывает действия записи; backend блокирует их. Интерактивный публичный демо-режим требует отдельной базы, ограничений записи и автоматического сброса данных — это работа следующей итерации.
+`init-env.sh` создаёт `/opt/taskpulse/.env` с правами `600` и случайными ключом cookie и паролями БД/брокера. Секреты не выводятся и не попадают в Git. Повторный запуск не перезаписывает `.env`. Если домен уже есть, вместо команды без аргумента выполните `bash deploy/init-env.sh demo.example.org`, подставив свой домен, и заранее направьте A-запись на IP VPS. Если домен ещё не выбран, приложение будет доступно только на loopback, Caddy останется выключенным. После добавления `SITE_DOMAIN` в `.env` повторите `deploy.sh`. `SENTRY_DSN` оставлен пустым.
 
-## Резервирование и обслуживание
+Обязательные настройки: `APP_ENV=prod`, `APP_DEBUG=false`, `APP_COOKIE_VALIDATION_KEY`, `APP_DEMO_MODE=true`, `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `REDIS_HOST`, `RABBITMQ_HOST`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, `DEMO_EMAIL`, `DEMO_FULL_NAME`, `DEMO_PASSWORD`. `APP_PUBLIC_WRITES=false` остаётся безопасным значением: в демо-режиме разрешены только операции с задачами фиксированного аккаунта. Публичная регистрация и изменение профиля запрещены. Демо-пароль намеренно публичен и не должен совпадать с инфраструктурными паролями.
 
-Сохраняйте резервные копии PostgreSQL и проверяйте восстановление. Для сохранения истории сообщений и кеша Compose использует отдельные тома RabbitMQ и Redis; удаление томов при `docker compose down --volumes` приведёт к потере их данных. Контейнерные логи ротируются: до трёх файлов по 10 МБ на сервис. После обновления проверьте publisher, worker и DLQ RabbitMQ; не очищайте DLQ до выяснения причины ошибок.
+## Обновление и резервная копия
+
+После слияния PR в `main` выполните на VPS `cd /opt/taskpulse && bash deploy/deploy.sh`. Скрипт делает только fast-forward `main`, собирает production-образы, запускает зависимости, сохраняет `pg_dump` в `/opt/taskpulse/backups/` перед миграциями, явно выполняет `php yii migrate --interactive=0`, восстанавливает демоданные и ждёт локальный `/health`. Неполученная резервная копия останавливает процесс до миграции. Не запускайте `migrate/down` в production: auth-миграция намеренно необратима.
+
+Резервные копии имеют права `600`, каталог — `700`. Регулярно проверяйте свободное место и проверяйте восстановление на отдельной тестовой базе; наличие файла дампа само по себе не доказывает пригодность копии. Для отката кода верните нужный проверенный коммит через обычный Git workflow и пересоберите образы. Если миграция изменила схему несовместимо, остановите приложение и восстановите PostgreSQL из конкретного дампа после проверки его содержимого. Не удаляйте тома `docker compose down --volumes` на живом стенде.
+
+## Демо и диагностика
+
+`php yii demo/reset` работает только при включённом демо-режиме, обновляет один фиксированный аккаунт и его примеры задач в транзакции, удаляет его ключи идемпотентности и истёкшие токены, не трогает других пользователей. Опубликованные outbox-события сохраняются, чтобы поздняя доставка из RabbitMQ не попадала в DLQ из-за отсутствующего event ID. Кеш аналитики инвалидируется. Сброс запускается после деплоя и таймером `taskpulse-demo-reset.timer` каждые 30 минут. Проверки:
+
+```bash
+systemctl status taskpulse-demo-reset.timer
+systemctl status taskpulse-demo-reset.service
+docker compose -f compose.prod.yaml ps
+docker compose -f compose.prod.yaml logs --tail=100 app publisher worker
+curl --fail http://127.0.0.1:8080/health
+```
+
+Через публичный HTTPS проверьте `/`, `/app/`, `/health`, `/docs/`, `/openapi.yaml`, вход, задачи и аналитику. При ошибке используйте `X-Request-Id`, логи контейнеров и `journalctl -u caddy`; проверьте статус Caddy и DNS A-запись. Для проверки очередей используйте `docker compose -f compose.prod.yaml exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged`. RabbitMQ management-порт наружу не открыт.

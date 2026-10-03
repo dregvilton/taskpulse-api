@@ -1,14 +1,16 @@
 openapi: 3.0.3
 info:
   title: TaskPulse API
-  version: 0.9.0
+  version: 1.0.0
   license:
     name: MIT
     url: https://opensource.org/license/mit
   description: |
     Каждый ответ содержит X-Request-Id для поиска соответствующих логов.
     Запросы API ограничиваются по IP; при превышении лимита возвращается 429.
-    В production операции записи по умолчанию отключены и возвращают 403.
+    В production запись по умолчанию отключена. В публичном демо разрешены только
+    операции с задачами фиксированного аккаунта; регистрация и изменение профиля
+    возвращают 403. Демоданные автоматически сбрасываются каждые 30 минут.
     Пользователи являются учётными записями. Защищённые маршруты принимают Bearer-токен.
     Токен действует один час и отзывается при выходе.
 servers:
@@ -55,6 +57,7 @@ paths:
       security: []
       tags: [Auth]
       summary: Войти в API
+      description: В публичном демо войти может только фиксированный демо-аккаунт.
       requestBody:
         required: true
         content:
@@ -158,7 +161,7 @@ paths:
       security: []
       tags: [Users]
       summary: Зарегистрировать пользователя
-      description: Повторная регистрация с занятой почтой возвращает 422, в том числе при одновременных запросах.
+      description: Повторная регистрация с занятой почтой возвращает 422, в том числе при одновременных запросах. В публичном демо регистрация запрещена.
       requestBody:
         required: true
         content:
@@ -526,13 +529,13 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     Forbidden:
-      description: Нет доступа к ресурсу или запись в публичном API отключена
+      description: Нет доступа к ресурсу или действие запрещено в демо-режиме
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     WritesDisabled:
-      description: Запись в публичном API отключена
+      description: Операция записи недоступна в текущем режиме
       content:
         application/json:
           schema:
