@@ -1,0 +1,9 @@
+[Unit]
+Description=Restore TaskPulse public demo data
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/taskpulse
+ExecStart=/usr/bin/docker compose -f compose.prod.yaml exec -T app php yii demo/reset

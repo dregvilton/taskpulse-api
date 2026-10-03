@@ -1,4 +1,4 @@
-FROM php:8.3-fpm-alpine
+FROM php:8.3-fpm-alpine AS php-base
 
 RUN apk add --no-cache \
         libpq-dev \
@@ -12,3 +12,12 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 
 CMD ["php-fpm"]
+
+FROM php-base AS production
+
+COPY . /app
+RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader \
+    && mkdir -p /app/protected/runtime/logs \
+    && chown -R www-data:www-data /app/protected/runtime
+
+FROM php-base AS development
