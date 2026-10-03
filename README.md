@@ -4,6 +4,18 @@
 
 TaskPulse — приложение для задач и аналитики с REST API на Yii2 и интерфейсом на Vue 3.
 
+## Публичное демо
+
+- [Открыть приложение](https://taskpulse-demo.ru/app/)
+- [Документация API (Swagger UI)](https://taskpulse-demo.ru/docs/)
+- [Спецификация OpenAPI](https://taskpulse-demo.ru/openapi.yaml)
+- [Исходный код на GitHub](https://github.com/dregvilton/taskpulse-api)
+
+Вход: `demo@taskpulse.example` / `TaskPulseDemo2026!`. Это общий публичный
+аккаунт-песочница: можно создавать и изменять задачи, но нельзя менять профиль
+или регистрировать пользователей. Данные автоматически сбрасываются каждые
+30 минут. Не вводите в демо реальные или персональные данные.
+
 ## Stack
 
 - PHP 8.3 and Yii2 2.0.55
