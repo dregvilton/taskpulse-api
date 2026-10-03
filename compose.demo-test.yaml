@@ -1,0 +1,7 @@
+services:
+  app:
+    environment:
+      APP_DEMO_MODE: "true"
+      DEMO_EMAIL: demo@example.test
+      DEMO_FULL_NAME: Демо Пользователь
+      DEMO_PASSWORD: public-demo-password

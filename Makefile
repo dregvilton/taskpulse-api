@@ -1,6 +1,6 @@
 COMPOSE := docker compose
 
-.PHONY: init up down restart shell composer-install migrate test stan cs cs-fix frontend-check check logs
+.PHONY: init up down restart shell composer-install migrate test demo-test stan cs cs-fix frontend-check check logs
 
 init:
 	@test -f .env || cp .env.example .env
@@ -33,6 +33,10 @@ test:
 	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app php yii migrate --interactive=0
 	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app composer test
 
+demo-test:
+	APP_PORT=18080 $(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml -f compose.demo-test.yaml up -d --no-build --force-recreate app nginx
+	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml -f compose.demo-test.yaml exec -T app vendor/bin/phpunit tests/demo/DemoModeApiTest.php
+
 stan:
 	$(COMPOSE) exec app composer stan
 
@@ -48,6 +52,7 @@ frontend-check:
 check: test frontend-check
 	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app composer stan
 	$(COMPOSE) -p taskpulse-test -f compose.yaml -f compose.test.yaml exec -T app composer cs
+	$(MAKE) demo-test
 
 logs:
 	$(COMPOSE) logs -f --tail=100

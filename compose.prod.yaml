@@ -1,0 +1,133 @@
+name: taskpulse-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    image: taskpulse-app:production
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: production
+    env_file: .env
+    environment:
+      APP_COMPONENT: api
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  publisher:
+    image: taskpulse-app:production
+    env_file: .env
+    environment:
+      APP_COMPONENT: publisher
+    command: php yii task-event/run-publisher
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker:
+    image: taskpulse-app:production
+    env_file: .env
+    environment:
+      APP_COMPONENT: worker
+    command: php yii task-event/consume
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  nginx:
+    image: taskpulse-nginx:production
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+      target: production
+      args:
+        VITE_DEMO_MODE: "true"
+        VITE_DEMO_EMAIL: ${DEMO_EMAIL:?DEMO_EMAIL is required}
+        VITE_DEMO_PASSWORD: ${DEMO_PASSWORD:?DEMO_PASSWORD is required}
+    ports:
+      - "127.0.0.1:8080:80"
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - app
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is required}
+      POSTGRES_USER: ${DB_USER:?DB_USER is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis-data:/data
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.42.0/24
+          gateway: 172.28.42.1
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:

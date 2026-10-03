@@ -856,6 +856,19 @@ textarea:focus {
 .login-card .stack-form {
   margin: 34px 0 25px;
 }
+.demo-entry {
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid #dbe3f7;
+  border-radius: 14px;
+  background: #f1f5ff;
+}
+.demo-entry p {
+  margin: 0 0 14px;
+  color: #536484;
+  font-size: 13px;
+  line-height: 1.5;
+}
 .login-switch {
   color: #9aa7b8;
   font-size: 12px;

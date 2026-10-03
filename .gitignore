@@ -11,6 +11,7 @@
 /protected/runtime/logs/*
 !/protected/runtime/logs/.gitkeep
 /vendor/
+/backups/
 /frontend/node_modules/
 /frontend/dist/
 /frontend/.env*

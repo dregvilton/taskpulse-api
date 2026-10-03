@@ -21,6 +21,20 @@ jobs:
       - name: Собрать Docker-образы
         run: docker compose build app nginx
 
+      - name: Проверить production-образы
+        env:
+          DEMO_EMAIL: demo@example.test
+          DEMO_PASSWORD: public-demo-password
+          DB_NAME: example
+          DB_USER: example
+          DB_PASSWORD: example-only
+          RABBITMQ_USER: example
+          RABBITMQ_PASSWORD: example-only
+        run: |
+          docker compose -f compose.prod.yaml config --quiet
+          docker compose -f compose.prod.yaml build app nginx
+          docker run --rm --entrypoint sh taskpulse-app:production -c 'test ! -e /app/.env && test ! -e /app/vendor/bin/phpunit'
+
       - name: Проверить Composer
         run: docker compose run --rm --no-deps app composer validate --strict
 

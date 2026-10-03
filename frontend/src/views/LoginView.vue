@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api.js'
+import { demoEmail, demoMode, demoPassword } from '../demoConfig.js'
 import { startSession } from '../session.js'
 
 const route = useRoute()
@@ -16,10 +17,16 @@ const fields = ref({})
 const isRegister = computed(() => mode.value === 'register')
 
 function switchMode(nextMode) {
-  if (busy.value) return
+  if (busy.value || demoMode) return
   mode.value = nextMode
   error.value = ''
   fields.value = {}
+}
+
+async function enterDemo() {
+  email.value = demoEmail
+  password.value = demoPassword
+  await submit()
 }
 
 async function submit() {
@@ -90,6 +97,21 @@ async function submit() {
         </p>
         <p v-if="error" class="error-banner" role="alert">{{ error }}</p>
 
+        <div v-if="demoMode" class="demo-entry">
+          <p>
+            Это публичный стенд: используйте только вымышленные данные. Задачи сбрасываются каждые
+            30 минут.
+          </p>
+          <button
+            class="button button--secondary button--wide"
+            type="button"
+            :disabled="busy"
+            @click="enterDemo"
+          >
+            {{ busy ? 'Подождите…' : 'Войти в демо без регистрации' }}
+          </button>
+        </div>
+
         <form class="stack-form" @submit.prevent="submit">
           <label v-if="isRegister"
             >Имя
@@ -150,7 +172,7 @@ async function submit() {
           </button>
         </form>
 
-        <p class="login-switch">
+        <p v-if="!demoMode" class="login-switch">
           {{ isRegister ? 'Уже есть аккаунт?' : 'Впервые здесь?' }}
           <button
             type="button"
@@ -161,8 +183,12 @@ async function submit() {
           </button>
         </p>
         <p class="login-footnote">
-          Токен хранится только до закрытия или обновления страницы. Данные доступны только
-          владельцу аккаунта.
+          Токен хранится только до закрытия или обновления страницы.
+          {{
+            demoMode
+              ? 'Демо-аккаунт общий для всех посетителей.'
+              : 'Данные доступны только владельцу аккаунта.'
+          }}
         </p>
       </div>
     </section>

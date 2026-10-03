@@ -1,4 +1,7 @@
 .git
+.env
+.env.*
+!.env.example
 .idea
 .php-cs-fixer.cache
 .phpunit.cache

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\controllers;
 
+use app\models\User;
 use Yii;
 use yii\base\Action;
 use yii\filters\auth\HttpBearerAuth;
@@ -64,12 +65,32 @@ abstract class BaseController extends Controller
             throw new UnauthorizedHttpException('Необходима авторизация.', previous: $exception);
         }
 
-        $publicWritesEnabled = filter_var($_ENV['APP_PUBLIC_WRITES'] ?? false, FILTER_VALIDATE_BOOL);
-        if (
+        $isWrite = !in_array(Yii::$app->request->getMethod(), ['GET', 'HEAD', 'OPTIONS'], true);
+        if (Yii::$app->params['demoMode']) {
+            if (!in_array($action->uniqueId, ['health/index', 'auth/login'], true)) {
+                $identity = Yii::$app->user->identity;
+                $demoEmail = Yii::$app->params['demoEmail'];
+                if (
+                    !$identity instanceof User
+                    || $demoEmail === ''
+                    || mb_strtolower((string) $identity->email) !== $demoEmail
+                ) {
+                    throw new ForbiddenHttpException('Доступен только демо-аккаунт.');
+                }
+
+                if (
+                    $isWrite
+                    && $action->uniqueId !== 'auth/logout'
+                    && !str_starts_with($action->uniqueId, 'task/task/')
+                ) {
+                    throw new ForbiddenHttpException('Профиль демо-аккаунта изменять нельзя.');
+                }
+            }
+        } elseif (
             YII_ENV_PROD
-            && !$publicWritesEnabled
+            && $isWrite
+            && !filter_var($_ENV['APP_PUBLIC_WRITES'] ?? false, FILTER_VALIDATE_BOOL)
             && !in_array($action->uniqueId, ['auth/login', 'auth/logout'], true)
-            && !in_array(Yii::$app->request->getMethod(), ['GET', 'HEAD', 'OPTIONS'], true)
         ) {
             throw new ForbiddenHttpException('Запись в публичном API отключена.');
         }
