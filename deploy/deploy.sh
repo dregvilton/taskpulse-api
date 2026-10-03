@@ -37,10 +37,10 @@ if ! "${compose[@]}" exec -T postgres sh -c \
     exit 1
 fi
 
-"${compose[@]}" up -d app
+"${compose[@]}" up -d --force-recreate app
 "${compose[@]}" exec -T app php yii migrate --interactive=0
 "${compose[@]}" exec -T app php yii demo/reset
-"${compose[@]}" up -d nginx publisher worker
+"${compose[@]}" up -d --force-recreate nginx publisher worker
 
 ready=false
 for _ in {1..30}; do
