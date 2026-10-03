@@ -28,6 +28,13 @@ final class AuthService
      */
     public function login(LoginForm $form): ?array
     {
+        if (
+            Yii::$app->params['demoMode']
+            && mb_strtolower((string) $form->email) !== Yii::$app->params['demoEmail']
+        ) {
+            return null;
+        }
+
         $user = User::find()
             ->where(['email' => $form->email, 'deleted_at' => null])
             ->one();

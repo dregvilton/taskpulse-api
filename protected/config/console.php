@@ -6,6 +6,7 @@ use app\components\JsonLogTarget;
 use app\components\SentryLogTarget;
 use app\modules\task\repositories\TaskEventRepository;
 use app\services\AnalyticsCache;
+use app\services\DemoResetService;
 use app\services\OutboxPublisher;
 use app\services\TaskEventBroker;
 use app\services\TaskEventConsumer;
@@ -41,6 +42,12 @@ return [
             'class' => FileCache::class,
         ],
         'db' => $db,
+        'demoResetService' => static function (): DemoResetService {
+            /** @var AnalyticsCache $analyticsCache */
+            $analyticsCache = Yii::$app->get('analyticsCache');
+
+            return new DemoResetService($analyticsCache);
+        },
         'i18n' => $i18n,
         'log' => [
             'flushInterval' => 1,
