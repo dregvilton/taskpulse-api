@@ -1,5 +1,7 @@
 # TaskPulse
 
+[![CI](https://github.com/dregvilton/taskpulse-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dregvilton/taskpulse-api/actions/workflows/ci.yml)
+
 TaskPulse — приложение для задач и аналитики с REST API на Yii2 и интерфейсом на Vue 3.
 
 ## Stack
@@ -13,7 +15,9 @@ TaskPulse — приложение для задач и аналитики с RE
 - Docker Compose
 - PHPUnit, PHPStan, and PHP CS Fixer
 
-CI будет добавлен в следующей итерации.
+Устройство сервиса описано в [architecture.md](architecture.md), запуск и ограничения
+публичного стенда — в [deployment.md](deployment.md). Контракт API проверяется в CI и
+доступен в [OpenAPI](openapi.yaml) или через Swagger UI по адресу `/docs`.
 
 ## Local setup
 
@@ -26,6 +30,8 @@ make init
 
 Интерфейс доступен по адресу <http://localhost:8080/app/>. Запрос к
 <http://localhost:8080/> перенаправляет туда; API остаётся на прежних маршрутах.
+Swagger UI доступен по адресу <http://localhost:8080/docs/>. Он загружает
+спецификацию с <http://localhost:8080/openapi.yaml> без внешнего CDN.
 
 ## Vue-интерфейс
 
@@ -47,6 +53,39 @@ UI собирается в Docker-образ Nginx и работает с API н
 `cd frontend && npm ci && npm run dev`. Vite откроется на
 <http://localhost:5173/> и перенаправит API-запросы к `localhost:8080`.
 Для проверки интерфейса через Docker: `make frontend-check`.
+
+## Локальный демо-сценарий
+
+Откройте `/app/`, зарегистрируйтесь и создайте задачу. Отметьте её завершённой,
+проверьте фильтр «Завершённые» и раздел «Аналитика». Чтобы выполнить те же шаги
+через API, после регистрации и входа скопируйте `accessToken` из ответа и задайте
+его локальной переменной `TOKEN` (не записывайте в репозиторий):
+
+```bash
+curl -i -X POST http://localhost:8080/users \
+  -H 'Content-Type: application/json' \
+  -d '{"fullName":"Демо Пользователь","email":"demo@example.test","password":"<ваш-пароль-от-12-символов>"}'
+
+curl -i -X POST http://localhost:8080/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.test","password":"<ваш-пароль-от-12-символов>"}'
+
+TOKEN='<accessToken из ответа>'
+curl -i -X POST http://localhost:8080/tasks \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: demo-task-1' \
+  -d '{"title":"Посмотреть TaskPulse"}'
+
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/tasks?completed=false'
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/analytics/tasks'
+```
+
+Замените пароль и токен своими значениями. Повтор `POST /tasks` с тем же ключом и
+телом вернёт исходный ответ. В Swagger UI нажмите **Authorize** и введите токен;
+это другой способ попробовать защищённые маршруты. В production регистрация и
+запись по умолчанию отключены — правила публичного демо описаны в
+[deployment.md](deployment.md).
 
 Проверка приложения и зависимостей:
 
@@ -237,6 +276,10 @@ make check              # run every code check
 make logs               # follow container logs
 make frontend-check     # Docker-сборка и UI-тесты Vue
 ```
+
+CI запускает `composer validate`, backend-тесты, PHPStan и code style,
+Vue-тесты и проверку форматирования, строгую проверку OpenAPI и сборку
+Docker-образов на каждом PR и push в `main`.
 
 ## Iteration workflow
 

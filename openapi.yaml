@@ -1,7 +1,10 @@
 openapi: 3.0.3
 info:
   title: TaskPulse API
-  version: 0.7.0
+  version: 0.9.0
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
   description: |
     Каждый ответ содержит X-Request-Id для поиска соответствующих логов.
     Запросы API ограничиваются по IP; при превышении лимита возвращается 429.
@@ -9,12 +12,13 @@ info:
     Пользователи являются учётными записями. Защищённые маршруты принимают Bearer-токен.
     Токен действует один час и отзывается при выходе.
 servers:
-  - url: http://localhost:8080
+  - url: /
 security:
   - bearerAuth: []
 paths:
   /health:
     get:
+      operationId: checkHealth
       security: []
       tags: [Health]
       summary: Проверить состояние приложения
@@ -25,14 +29,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+              example:
+                status: ok
+                services:
+                  app: ok
+                  postgres: ok
+                  redis: ok
+                  rabbitmq: ok
         '503':
           description: Одна из зависимостей недоступна
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+              example:
+                status: error
+                services:
+                  app: ok
+                  postgres: error
+                  redis: ok
+                  rabbitmq: ok
   /auth/login:
     post:
+      operationId: login
       security: []
       tags: [Auth]
       summary: Войти в API
@@ -59,6 +78,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
   /auth/logout:
     post:
+      operationId: logout
       tags: [Auth]
       summary: Отозвать текущий токен
       responses:
@@ -70,6 +90,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
   /analytics/tasks:
     get:
+      operationId: getTaskAnalytics
       tags: [Analytics]
       summary: Получить аналитику задач
       description: |
@@ -100,6 +121,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
   /users:
     get:
+      operationId: listUsers
       tags: [Users]
       summary: Получить список из текущего пользователя
       parameters:
@@ -132,6 +154,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
     post:
+      operationId: createUser
       security: []
       tags: [Users]
       summary: Зарегистрировать пользователя
@@ -167,6 +190,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/UserId'
     get:
+      operationId: getUser
       tags: [Users]
       summary: Получить свой профиль
       responses:
@@ -185,6 +209,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
     patch:
+      operationId: updateUser
       tags: [Users]
       summary: Обновить свой профиль
       requestBody:
@@ -213,6 +238,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
     delete:
+      operationId: deleteUser
       tags: [Users]
       summary: Удалить свой профиль и отозвать его токены
       responses:
@@ -230,6 +256,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/UserId'
     get:
+      operationId: listUserTasks
       tags: [Tasks]
       summary: Получить свои задачи
       parameters:
@@ -256,6 +283,7 @@ paths:
           $ref: '#/components/responses/RateLimited'
   /tasks:
     get:
+      operationId: listTasks
       tags: [Tasks]
       summary: Получить список своих задач
       parameters:
@@ -280,6 +308,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
     post:
+      operationId: createTask
       tags: [Tasks]
       summary: Создать задачу
       description: |
@@ -327,6 +356,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/TaskId'
     get:
+      operationId: getTask
       tags: [Tasks]
       summary: Получить свою задачу
       responses:
@@ -343,6 +373,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
     patch:
+      operationId: updateTask
       tags: [Tasks]
       summary: Обновить свою задачу
       description: |
@@ -375,6 +406,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
     delete:
+      operationId: deleteTask
       tags: [Tasks]
       summary: Удалить свою задачу
       description: Мягкое удаление и outbox-событие сохраняются в одной транзакции.

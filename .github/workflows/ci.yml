@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Подготовить тестовое окружение
+        run: cp .env.example .env
+
+      - name: Собрать Docker-образы
+        run: docker compose build app nginx
+
+      - name: Проверить Composer
+        run: docker compose run --rm --no-deps app composer validate --strict
+
+      - name: Установить PHP-зависимости
+        run: docker compose run --rm --no-deps app composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Тесты, PHPStan, стиль, Vue и OpenAPI
+        run: make check
+
+      - name: Проверить доступность документации
+        run: |
+          curl --fail --silent --show-error http://localhost:18080/docs/ | grep -q 'SwaggerUIBundle'
+          curl --fail --silent --show-error http://localhost:18080/openapi.yaml | grep -q 'openapi: 3.0.3'
+
+      - name: Остановить тестовый стек
+        if: always()
+        run: docker compose -p taskpulse-test -f compose.yaml -f compose.test.yaml down --volumes

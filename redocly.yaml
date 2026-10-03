@@ -1,0 +1,6 @@
+extends:
+  - recommended-strict
+
+rules:
+  # Публичный healthcheck не принимает данные и не возвращает 4xx.
+  operation-4xx-response: off
