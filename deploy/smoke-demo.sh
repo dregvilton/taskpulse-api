@@ -72,6 +72,16 @@ user_id=$(printf '%s' "$payload" | jq -er '.userId')
 
 request GET /users
 expect_status 200 'GET /users'
+request GET "/users/$user_id/tasks"
+expect_status 200 'GET /users/{id}/tasks'
+request GET '/tasks?completed=false&sort=title&page=1&perPage=1'
+expect_status 200 'Фильтр и первая страница задач'
+printf '%s' "$payload" | jq -e '(.items | length) == 1 and ._meta.totalCount >= 2 and ._meta.pageCount >= 2' >/dev/null
+first_task_id=$(printf '%s' "$payload" | jq -er '.items[0].id')
+request GET '/tasks?completed=false&sort=title&page=2&perPage=1'
+expect_status 200 'Вторая страница задач'
+printf '%s' "$payload" | jq -e --argjson first "$first_task_id" \
+    '(.items | length) == 1 and .items[0].id != $first' >/dev/null
 request PATCH "/users/$user_id" '{"fullName":"Нельзя изменять"}'
 expect_status 403 'Изменение профиля запрещено'
 request POST /users '{"fullName":"Другой","email":"new@example.test","password":"another-long-password"}'
