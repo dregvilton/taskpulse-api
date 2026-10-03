@@ -4,6 +4,8 @@
 
 Нужны Docker Compose и GNU Make. Скопируйте `.env.example` в `.env`, замените примерные значения и выполните `make init`. Интерфейс доступен на `/app/`, Swagger UI — на `/docs/`, состояние зависимостей — на `/health`. `make check` запускает обычные тесты, отдельные тесты демо-режима, PHPStan, проверку стиля, Vue-тесты и OpenAPI lint.
 
+Для разработки интерфейса с горячим обновлением запустите API через `make up`, затем выполните `cd frontend && npm ci && npm run dev`. Vite откроется на <http://localhost:5173/> и проксирует API-запросы к `localhost:8080`. `make frontend-check` проверяет фронтенд через Docker. `VITE_API_BASE_URL` задаёт только публичный адрес API при сборке; по умолчанию используется тот же домен. Не помещайте пароли, DSN и токены в `VITE_*`: Vite включает эти значения в клиентский код. Пример настройки — [`frontend/.env.example`](frontend/.env.example).
+
 ## Production на одном VPS
 
 Предусмотренная схема: Ubuntu 24.04, Docker Engine и Compose plugin, Caddy как внешний HTTPS-прокси, `compose.prod.yaml` с приложением на `127.0.0.1:8080`. PostgreSQL, Redis и RabbitMQ не публикуют порты. Nginx доверяет `X-Forwarded-For` только Docker-шлюзу `172.28.42.1`; Caddy не принимает произвольный клиентский `X-Forwarded-For` как доверенный. Приложение и Composer-зависимости находятся внутри PHP-образа, исходники не монтируются из checkout. Все сервисы имеют restart policy и ротацию Docker-логов.
@@ -43,6 +45,8 @@ curl --fail http://127.0.0.1:8080/health
 ```
 
 Через публичный HTTPS проверьте `/`, `/app/`, `/health`, `/docs/`, `/openapi.yaml`, вход, задачи и аналитику. При ошибке используйте `X-Request-Id`, логи контейнеров и `journalctl -u caddy`; проверьте статус Caddy и DNS A-запись. Для проверки очередей используйте `docker compose -f compose.prod.yaml exec rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged`. RabbitMQ management-порт наружу не открыт.
+
+Nginx пишет структурированные логи запросов без query-строки и тела; Docker ротирует их по три файла до 10 МБ на контейнер. `SENTRY_DSN` опционален: в Sentry отправляются ошибки API и фоновых процессов, но не ожидаемые 4xx. Диагностика содержит маршрут, метод и тип или длину входных полей, а не их персональные значения, пароли или токены. Nginx ограничивает API по IP до 20 запросов в секунду с коротким всплеском до 100; `/health` исключён. После устранения причины сбоя сообщения из DLQ нужно возвращать в основную очередь вручную.
 
 С машины с `curl` и `jq` можно выполнить воспроизводимый smoke-сценарий (только для общего демо-аккаунта):
 
